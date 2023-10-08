@@ -1,0 +1,20 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "run with args",
+            "type": "shell",
+            "args": [
+                "--path_settings",
+                "scripts/twoD/settings.json"
+            ],
+            "command": "Python main1D2D_train.py",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
