@@ -97,7 +97,7 @@ class DeepONet:
 
             self.params = flax.core.frozen_dict.freeze(self.params)
 
-        print(freeze_layers)
+        #print(freeze_layers)
         #print(jax.tree_map(jnp.shape, self.params))
 
         self.branch_apply = module_bn.apply
@@ -327,8 +327,7 @@ class DeepONet:
         self.writeSummary(writer, loss_train_value, loss_val_value, it)
                 
         # Save model to disk
-        writer.add_scalar(f'Loss/learning_rate', np.array(self.opt_scheduler(it-self.step_offset)), it)
-        self.writeModel(it)
+        self.writeModel(it) #, write_separate=True
 
     def writeModel(self, iter):
         orbax_checkpointer = orbax.checkpoint.PyTreeCheckpointer()
@@ -341,6 +340,7 @@ class DeepONet:
     def writeSummary(self, writer, loss_train, loss_val, iter):
         writer.add_scalar(f'Loss/train/loss', np.array(loss_train), iter)        
         writer.add_scalar(f'Loss/val/loss', np.array(loss_val), iter)
+        writer.add_scalar(f'Loss/learning_rate', np.array(self.opt_scheduler(iter-self.step_offset)), iter)
 
     # Evaluates predictions at test points
     @partial(jit, static_argnums=(0,))

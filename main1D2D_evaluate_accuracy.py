@@ -25,23 +25,22 @@ from setup.settings import SimulationSettings
 import setup.parsers as parsers
 from pathlib import Path
 
-show_plots = False
-tmax = 16.9
-plot_large_fonts = True
-plot_axis = not plot_large_fonts
+id = "spectral_sine_1D"
+input_dir = "/work3/nibor/data/input1D"
+output_path = "/work3/nibor/data/deeponet/output1D"
+
+### overwrite validation data from settings file ###
+# testing_data_path = os.path.join(input_dir, "rect3x3_freq_indep_ppw_2_4_2_from_ppw_dx5_srcs33_val.h5")
 
 mod_fnn = True
 do_animate = False
-
-id = "spectral_sine_1D"
-#testing_data_path = "/work3/nibor/data/deeponet/input_1D_2D/<data>"
-output_path = "/work3/nibor/data/deeponet/output_1D_2D"
+tmax = 16.9
 
 settings_path = os.path.join(output_path, f"{id}/settings.json")
 
 settings_dict = parsers.parseSettings(settings_path)
 settings = SimulationSettings(settings_dict)
-
+### uncomment this line if custom testing data should be used ###
 testing_data_path = settings.dirs.testing_data_path
 
 do_fnn = settings.branch_net.architecture == NetworkArchitectureType.MLP
@@ -51,8 +50,7 @@ trunk_net = settings.trunk_net
 
 tmax = settings.tmax
 
-# load training data
-data_debug = rw.loadDataFromH5(settings.dirs.training_data_path, tmax=tmax)
+# load testing data
 data_test = rw.loadDataFromH5(testing_data_path, tmax=tmax)
 simulation_settings = rw.loadAttrFromH5(settings.dirs.training_data_path)
 
@@ -70,12 +68,6 @@ up_test = data_test.upressures
 x0_srcs = data_test.x0_srcs
 ushape_test = data_test.ushape # TODO for CNNs
 
-# u_debug,s_debug,t1d_debug,grid1d_debug = setupData(data_debug.mesh[::prune_test,:],
-#                                                    data_debug.pressures[:,::prune_test,::prune_test],
-#                                                    data_debug.upressures,
-#                                                    data_debug.t[::prune_test],
-#                                                    data_debug.ushape,do_fnn)
-
 u_test,s_test,t1d_test,grid1d_test = setupData(mesh_test,p_test,up_test,t_test,ushape_test,do_fnn)
 
 y_test = jnp.hstack([grid1d_test, t1d_test])
@@ -90,9 +82,8 @@ if settings.normalize_data:
         y_test = normalizeDomain(y_test, ymin, ymax, from_zero=from_zero)
 
 y_feat = featexp.fourierFeatureExpansion_f0(settings.f0_feat)
-
 #y_feat = featexp.fourierFeatureExpansion_gaussian((10,3), mean=fmax/2, std_dev=fmax/2)
-# y_feat = featexp.fourierFeatureExpansion_exact_sol([fmax, fmax/2, fmax/6], c, 3.0, 3.0)
+#y_feat = featexp.fourierFeatureExpansion_exact_sol([fmax, fmax/2, fmax/6], c, 3.0, 3.0)
 
 y_test = y_feat(y_test)
 

@@ -2,7 +2,7 @@
 
 #BSUB -W 00:10
 #BSUB -q gpuv100
-#BSUB -n 1
+#BSUB -n 4
 #BSUB -gpu "num=1:mode=exclusive_process"
 #BSUB -R "span[hosts=1]"
 #BSUB -R "rusage[mem=32GB]"
@@ -25,4 +25,4 @@ module load tensorrt/8.6.1.6-cuda-12.X
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:$CUDA_ROOT/extras/CUPTI/lib64/"
 
-python3 main_evaluate3D.py 
+python3 main3D_evaluate_accuracy.py 

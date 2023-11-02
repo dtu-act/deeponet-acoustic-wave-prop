@@ -13,8 +13,8 @@
 ### -- Notify me by email when execution ends   --
 #BSUB -N
 ### -- Specify the output and error file. %J is the job-id --
-#BSUB -o "/work3/nibor/data/logs/deeponet_%J.out"
-#BSUB -e "/work3/nibor/data/logs/deeponet_%J.err"
+#BSUB -o "/work3/nibor/data/logs/deeponet2D_%J.out"
+#BSUB -e "/work3/nibor/data/logs/deeponet2D_%J.err"
 
 export PYTHONPATH="${PYTHONPATH}:/zhome/00/4/50173/.local/bin"
 

@@ -1,20 +1,20 @@
 #!/bin/bash
 
-#BSUB -W 00:10
+#BSUB -W 02:00
 #BSUB -q gpuv100
-#BSUB -n 4
 #BSUB -gpu "num=1:mode=exclusive_process"
+#BSUB -n 4
 #BSUB -R "span[hosts=1]"
-#BSUB -R "rusage[mem=16GB]"
-#BSUB -J inferance_test
+#BSUB -R "rusage[mem=64GB]"
+#BSUB -J deeponet1D
 
 ### -- Notify me by email when execution begins --
 #BSUB -B
 ### -- Notify me by email when execution ends   --
 #BSUB -N
 ### -- Specify the output and error file. %J is the job-id --
-#BSUB -o "/work3/nibor/data/logs/deeponet_%J.out"
-#BSUB -e "/work3/nibor/data/logs/deeponet_%J.err"
+#BSUB -o "/work3/nibor/data/logs/deeponet1D_%J.out"
+#BSUB -e "/work3/nibor/data/logs/deeponet1D_%J.err"
 
 export PYTHONPATH="${PYTHONPATH}:/zhome/00/4/50173/.local/bin"
 
@@ -25,4 +25,4 @@ module load tensorrt/8.6.1.6-cuda-12.X
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:$CUDA_ROOT/extras/CUPTI/lib64/"
 
-python3 main3D_evaluate_speed.py
+python3 main1D2D_train.py --path_settings="scripts/oneD/settings.json"

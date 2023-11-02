@@ -21,7 +21,6 @@ from datahandlers.io import XdmfReader
 from models.datastructures import SimulationDataType
 import datahandlers.io as IO
 
-MAXNUM_DATASETS = sys.maxsize # SET TO E.G: 500 WHEN DEBUGGING ON MACHINES WITH LESS RESOURCES
 IC_NORM = True
 
 def normalizeFourierDataExpansionZero(data, data_nonfeat_dim, ymin=-1, ymax=1):
@@ -142,7 +141,8 @@ class DataXdmf(IData):
     xmax: float
     normalize_data: bool
 
-    def __init__(self, data_path, tmax=float('inf'), t_norm=1, flatten_ic=True, data_prune=1, norm_data=False):
+    # MAXNUM_DATASETS: SET TO E.G: 500 WHEN DEBUGGING ON MACHINES WITH LESS RESOURCES
+    def __init__(self, data_path, tmax=float('inf'), t_norm=1, flatten_ic=True, data_prune=1, norm_data=False, MAXNUM_DATASETS=sys.maxsize):
         filenames_xdmf = IO.pathsToFileType(data_path, '.xdmf', exclude='rectilinear')
         self.normalize_data = norm_data
 
@@ -211,7 +211,8 @@ class DataH5Compact(IData):
     tt: list[float] = []
     tags_field: list[str] = []
 
-    def __init__(self, data_path, tmax=float('inf'), t_norm=1, flatten_ic=True, data_prune=1, norm_data=False):
+    # MAXNUM_DATASETS: SET TO E.G: 500 WHEN DEBUGGING ON MACHINES WITH LESS RESOURCES
+    def __init__(self, data_path, tmax=float('inf'), t_norm=1, flatten_ic=True, data_prune=1, norm_data=False, MAXNUM_DATASETS=sys.maxsize):
         filenamesH5 = IO.pathsToFileType(data_path, '.h5', exclude='rectilinear')
         self.data_prune = data_prune
         self.normalize_data = norm_data

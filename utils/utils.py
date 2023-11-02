@@ -156,43 +156,6 @@ def calcErrors(p_pred, p_ref, x0, r0, f):
 
     return mean_err, mean_err_rel, err_L1, err_rel
 
-def resampleICs1D(grid,p,dx,xminmax):
-    xlen = xminmax[1] - xminmax[0]
-    x_interp = np.linspace(xminmax[0],xminmax[1], int(np.ceil(xlen/dx)))
-
-    u_train = np.empty((p.shape[0],len(x_interp)), dtype=float)
-    for i in range(p.shape[0]):
-        p_i = np.array(p[i,0,:]) # srcs are initiated at time t=0 
-        u_train[i,:] = griddata(grid, p_i, x_interp, method='cubic')
-
-    assert(not np.isnan(u_train).any())
-
-    return u_train
-
-def resampleICs2D(grid,p,dx,xminmax,yminmax):
-    xlen = xminmax[1] - xminmax[0]
-    ylen = yminmax[1] - yminmax[0]
-    x = np.linspace(xminmax[0],xminmax[1], int(np.ceil(xlen/dx)))
-    y = np.linspace(yminmax[0],yminmax[1], int(np.ceil(ylen/dx)))
-    XX, YY = np.meshgrid(x,y)
-
-    x_interp = XX.flatten()
-    y_interp = YY.flatten()
-
-    u_train = np.empty((p.shape[0],len(x_interp)), dtype=float)
-    for i in range(p.shape[0]):
-        p_i = np.array(p[i,0,:]) # srcs are initiated at time t=0 
-        u_train[i,:] = griddata(grid, p_i, (x_interp,y_interp), method='cubic')
-
-    assert(not np.isnan(u_train).any())    
-
-    return u_train, XX, YY
-
-def tf_to_jax(x_tf):
-    return x_tf.numpy()
-    #x_dl = tf.experimental.dlpack.to_dlpack(x_tf)
-    #return jax.dlpack.from_dlpack(x_dl)
-
 # https://github.com/google/jax/discussions/10141
 def toJaxBatch(batch_tf):
     u, y = map(tf_to_jax, batch_tf[0])

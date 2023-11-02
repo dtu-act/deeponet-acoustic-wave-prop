@@ -65,14 +65,14 @@ def train(settings_path):
         from_zero = settings.trunk_net.activation == "relu"
         domain_minmax = simulation_settings['domain_minmax']
         if data.dim == 1:
-            domain_min, domain_ymax = domain_minmax[0], domain_minmax[1]
+            domain_min, domain_max = domain_minmax[0], domain_minmax[1]
         else: # 2D
             domain_min, domain_max = min(domain_minmax[:,0]), max(domain_minmax[:,1])    
         y_train = normalizeDomain(y_train, domain_min, domain_max, from_zero=from_zero)
         y_val = normalizeDomain(y_val, domain_min, domain_max, from_zero=from_zero)
 
     y_feat = featexp.fourierFeatureExpansion_f0(settings.f0_feat)
-    y_feat = featexp.fourierFeatureExpansion_gaussian((10,3), mean=fmax/2, std_dev=fmax/2)    
+    # y_feat = featexp.fourierFeatureExpansion_gaussian((10,3), mean=fmax/2, std_dev=fmax/2)
     # domain_minmax_norm = normalizeData(domain_minmax, domain_min, domain_max, from_zero=from_zero)
     # L_dom = domain_minmax_norm[:,1] - domain_minmax_norm[:,0]
     # y_feat = featexp.fourierFeatureExpansion_exact_sol([fmax, fmax/2, fmax/4], c, L_dom[0], L_dom[1]) # only defined in 2D

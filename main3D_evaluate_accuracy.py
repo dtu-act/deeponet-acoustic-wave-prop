@@ -25,54 +25,65 @@ from setup.settings import SimulationSettings
 import setup.parsers as parsers
 import datahandlers.io as IO
 
-output_dir = "/work3/nibor/data/deeponet/output"
-input_dir = "/work3/nibor/1TB/libP"
-do_animate = False
+CASE_EVALUATION = "LSHAPE" # "CUBE" | "FURNISHED" | "LSHAPE" | "DOME_FULL" | "DOME_QUAD"
 
+output_dir = "/work3/nibor/data/deeponet/output3D"
+input_dir = "/work3/nibor/1TB/input3D"
+do_animate = False
 prune_spatial = 1
 
-## CUBE 2x2x2
-# id = "cube_6ppw"
-# testing_data_path = "/work3/nibor/1TB/libP/cube_1000hz_p4_5ppw_srcpos5_val" # overwrite validation data from settings file
+if CASE_EVALUATION == "CUBE":
+    # CUBE 2x2x2
+    id = "cube_6ppw"
+    testing_data_path = os.path.join(input_dir, "cube_1000hz_p4_5ppw_srcpos5_val") # overwrite validation data from settings file
+    # RECEIVERS are calculated automatically
+elif CASE_EVALUATION == "LSHAPE":
+    # RECEIVERS LSHAPED
+    id = "Lshape_6ppw"
+    testing_data_path = os.path.join(input_dir, "Lshape_1000hz_p4_5ppw_srcpos5_val")
+    recv_pos = np.array([
+        [1.0, 2.00, 1.0],
+        [1.0, 1.75, 1.0],
+        [1.0, 1.50, 1.0],
+        [1.0, 1.75, 1.0],
+        [1.0, 2.00, 1.0]
+    ])
+elif CASE_EVALUATION == "FURNISHED":
+    ## RECEIVERS FURNISHED ROOM
+    id = "furnished_6ppw"
+    testing_data_path = os.path.join(input_dir, "furnished_1000hz_p4_5ppw_srcpos5_val")
+    recv_pos = np.array([
+        [2.25, 0.8, 1.2],
+        [1.8,  0.8, 1.2],
+        [1.5,  2.4, 1.2],
+        [1.2,  0.8, 1.2],    
+        [0.75, 0.8, 1.2]
+    ])
+elif CASE_EVALUATION == "DOME_FULL":
+    # DOME
+    id = "dome_6ppw" 
+    testing_data_path = os.path.join(input_dir, "dome_1000hz_p4_5ppw_srcpos5_val")
+    
+    recv_pos = np.array([
+        [0.8, 1.5, 0.75],
+        [0.8, 0.6, 0.75],
+        [2.4, 0.4, 0.75],
+        [0.8, 2.0, 0.75],
+        [2.2, 0.4, 0.75]
+    ])
+elif CASE_EVALUATION == "DOME_QUAD":
+    id = "dome_6ppw_1stquad" 
+    testing_data_path = os.path.join(input_dir, "dome_1000hz_p4_5ppw_srcpos5_1stquad_val/")
 
-## BILBAO ROOM
-# FULL
-id = "bilbao_6ppw" 
-testing_data_path = "/work3/nibor/1TB/libP/bilbao_1000hz_p4_5ppw_srcpos5_val"
-
-# 1st QUADRANT
-# id = "bilbao_6ppw_1stquad" 
-# testing_data_path = "/work3/nibor/1TB/libP/bilbao_1000hz_p4_5ppw_srcpos5_1stquad_val/"
-
-recv_pos = np.array([
-    [0.8, 1.5, 0.75],
-    [0.8, 0.6, 0.75],
-    [2.4, 0.4, 0.75],
-    [0.8, 2.0, 0.75],
-    [2.2, 0.4, 0.75]
-])
-
-## RECEIVERS FURNISHED ROOM
-# id = "furnished_6ppw"
-# testing_data_path = "/work3/nibor/1TB/libP/furnished_1000hz_p4_5ppw_srcpos5_val"
-# recv_pos = np.array([
-#     [2.25, 0.8, 1.2],
-#     [1.8,  0.8, 1.2],
-#     [1.5,  2.4, 1.2],
-#     [1.2,  0.8, 1.2],    
-#     [0.75, 0.8, 1.2]
-# ])
-
-## RECEIVERS LSHAPED
-# id = "Lshape_6ppw"
-# testing_data_path = "/work3/nibor/1TB/libP/Lshape_1000hz_p4_5ppw_srcpos5_val"
-# recv_pos = np.array([
-#     [1.0, 2.00, 1.0],
-#     [1.0, 1.75, 1.0],
-#     [1.0, 1.50, 1.0],
-#     [1.0, 1.75, 1.0],
-#     [1.0, 2.00, 1.0]
-# ])
+    recv_pos = np.array([
+        [0.8, 1.5, 0.75],
+        [0.8, 0.6, 0.75],
+        [2.4, 0.4, 0.75],
+        [0.8, 2.0, 0.75],
+        [2.2, 0.4, 0.75]
+    ])
+else: 
+    raise Exception(f"No such case to evaluate: {CASE_EVALUATION}")
 
 settings_path = os.path.join(output_dir, f"{id}/settings.json")
 
@@ -95,8 +106,9 @@ c_phys = phys_params.c_phys
 f = settings.f0_feat
 y_feat = fourierFeatureExpansion_f0(f)
 
+
 metadata_compare = DataH5Compact(settings.dirs.training_data_path, tmax=tmax, t_norm=c_phys, 
-    flatten_ic=do_fnn, data_prune=prune_spatial, norm_data=settings.normalize_data)
+    flatten_ic=do_fnn, data_prune=prune_spatial, norm_data=settings.normalize_data, MAXNUM_DATASETS=1)
 metadata = DataH5Compact(testing_data_path, tmax=tmax, t_norm=c_phys, 
     flatten_ic=do_fnn, data_prune=prune_spatial, norm_data=settings.normalize_data)
 dataset = DatasetStreamer(metadata, y_feat_extractor=y_feat)
@@ -128,15 +140,8 @@ params = model.params
 
 model.plotLosses(settings.dirs.figs_dir)
 
-## Plot solution using test data ###
-# sample a subset of the source positions
-# num_srcs = min(dataset.N,5)
-# rng = np.random.default_rng()
-# indxs_src = rng.integers(0, dataset.N, size=num_srcs)
-
 num_srcs = dataset.N
 indxs_src = range(0,num_srcs)
-#indxs_src = range(4,5)
 
 tdim = metadata.num_tsteps
 S_pred_srcs = np.empty((num_srcs,tdim,dataset.Pmesh), dtype=float)
@@ -178,8 +183,10 @@ for i_src,indx_src in enumerate(indxs_src):
 
 setupPlotParams(True)
 
-r0_list, r0_indxs = utils.getNearestFromCoordinates(xxyyzz_phys, recv_pos)
-#r0_list, r0_indxs = utils.calcReceiverPositionsSimpleDomain(xxyyzz_phys, x0_srcs)
+if CASE_EVALUATION == "CUBE":
+    r0_list, r0_indxs = utils.calcReceiverPositionsSimpleDomain(xxyyzz_phys, x0_srcs)
+else:
+    r0_list, r0_indxs = utils.getNearestFromCoordinates(xxyyzz_phys, recv_pos)
 
 plotting.plotAtReceiverPosition(x0_srcs,r0_list, r0_indxs,
     tsteps_phys,S_pred_srcs,S_test_srcs,tmax/c_phys,figs_dir=path_receivers,animate=do_animate)
