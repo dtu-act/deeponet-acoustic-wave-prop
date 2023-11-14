@@ -17,10 +17,10 @@ To start training a DeepONet model on either 1D/2D or 3D, run
 > main3D_train.py --path_settings <path-to-settings-file>` 
 ```
 
-The parameters `<path-to-settings-file>` should be the path to the setup settings file.
+The parameters `<path-to-settings-file>` should be the path to the setup settings file explained in the next section.
 
 ## SETUP SETTINGS FILE
-To train and evaluate a DeepONet model, a setup settings file is required indicating what data to use, the neural network type and parameters to use, whether transfer learning should be applied, and more. The setup file is a JSON file and looks like
+To train a DeepONet model, a setup settings file is required indicating what data to use, the neural network type and parameters to use, whether transfer learning should be applied, and more. The setup file is a JSON file and looks like
 
 ```json
 {
@@ -70,12 +70,10 @@ It is possible to continue training a model by adding adding the following to th
 
 ```json
 {
-    ...
     "transfer_learning": {
         "resume_learning": true,
         "transfer_model_path": "/path/to/the/deeponet/model/directory/"
     },
-    ...
 }
 ```
 
@@ -83,7 +81,6 @@ For transfer learning, one might to freeze certain layers done as follows:
 
 ```json
 {
-    ...
     "transfer_learning": {
         "resume_learning": false,
         "transfer_model_path": "/path/to/the/deeponet/model/directory/",
@@ -94,88 +91,133 @@ For transfer learning, one might to freeze certain layers done as follows:
             "tn_transformer": true
         }
     },
-    ...
 }
 ```
 The indexes for the branch net `bn` and `tn` is indicating the layers to freeze and the boolean for `bn_transformer` and `tn_transformer` determines if the encoder/transformer layers for the modified MLP network should be frozen or not.
 
 ## RUN EVALUATION
-For evaluating a trained model, the following Python scripts can be used:
+For evaluating a trained model, the following Python scripts can be used (see also section "RE-CREATING RESULTS FROM THE PAPER"):
 
-    deeponet_wave_propagation
-        ├── main1D2D_evaluate_accuracy.py
-        ├── main3D_evaluate_accuracy.py
-        ├── main3D_evaluate_speed.py
-        ├── scripts
-        │   ├── evaluate
-        │   │   ├── evaluate_accuracy3D.sh
-        │   │   ├── evaluate_speed3D.sh
+    .
+       ├── main1D2D_evaluate_accuracy.py
+       ├── main3D_eval.py
+       ├── eval3D.py
+       ├── main3D_evaluate_speed.py
+       ├── scripts
+       │   ├── evaluate
+       │   │   ├── evaluate_speed3D.sh
 
-The `*accuracy.py` scripts are used for plotting and creating `XDMF` files for visualizations in e.g. ParaView.
+In 3D, a `JSON` script is used to determine the path to the model to evaluate, the path to a `HDH5` test file containing the sources for which to evaluate the full wave field on a corresponding grid, the receiver positions for evaluating the impulse responses (adjusted to nearest grid point) and the impulse response length (normalized in seconds).
+
+```JSON
+{
+    "model_dir": "/path/to/trained/model/dir",    
+    "validation_data_dir": "/path/to/validation/data/dir",
+
+    "tmax": 17,
+    "recv_pos": [
+        [1.66256893, 1.61655235, 1.64047122],
+        [1.52937829, 1.57425201, 1.57134283],
+        [1.53937507, 1.50955164, 1.48763454],
+        [0.33143353, 0.33566815, 0.36886978],
+        [0.42988288, 0.43229115, 0.43867755]
+    ],
+
+    "write_full_wavefield": true,
+    "do_animate": false
+}
+```
+
+The evaluation scripts are used for plotting and creating `XDMF` files for visualizations in e.g. ParaView.
 
 ## DATA CONVERTERS
 2D Data generated with MATLAB can be assembled (needed if generated using multiple threads in parallel) and downsampled to specific resolutions using the 2D scripts below:
     
-    deeponet_wave_propagation
-        ├── convertH5
-        │   ├── assembly2D.py
-        │   ├── convert2D_resolutions.py
-        │   ├── main2D_assembly.py
-        │   ├── main2D_convert_resolutions.py
-        ├── scripts
-        │   ├── converters
-        │   │   ├── run2D_H5_assemble.sh
-        │   │   ├── run2D_H5_convert_resolutions.sh
+    .
+       ├── convertH5
+       │   ├── assembly2D.py
+       │   ├── convert2D_resolutions.py
+       │   ├── main2D_assembly.py
+       │   ├── main2D_convert_resolutions.py
+       ├── scripts
+       │   ├── converters
+       │   │   ├── run2D_H5_assemble.sh
+       │   │   ├── run2D_H5_convert_resolutions.sh
 
 Data generated with the libParanumal DG-FEM solver are generated with the resolution needed, but scripts for converting from float 32-bit to float 16-bit and scripts for extracting data for domain decomposition (i.e. for the dome geometry) can be done with the scripts below:
 
-    deeponet_wave_propagation
-        ├── convertH5
-        │   ├── main3D_convert_dtype.py
-        │   ├── main3D_DD.py
-        ├── scripts
-        │   ├── converters
-        │   │   ├── run3D_H5_convert_dome_DD.sh
-        │   │   └── run3D_H5_convert_dtype.sh
+    .
+       ├── convertH5
+       │   ├── main3D_convert_dtype.py
+       │   ├── main3D_DD.py
+       ├── scripts
+       │   ├── converters
+       │   │   ├── run3D_H5_convert_dome_DD.sh
+       │   │   └── run3D_H5_convert_dtype.sh
 
 More information can be found inside these scripts.
 
 ## RE-CREATING RESULTS FROM THE PAPER
-The scripts below can be used to train all DeepONet models from the paper. The training, validation and test data The data can be generated with the scripts described [here](https://github.com/dtu-act/libparanumal/tree/master/solvers/acoustics/simulationSetups/deeponet) or be provided by contacting the authors (< 500 GB).
+The scripts below can be used to train and evaluate all DeepONet models from the paper (adjust the data paths to match your local system).
 
-    deeponet_wave_propagation
-        │   ├── threeD
-        │   │   ├── cube.json
-        │   │   ├── dome_1stquad.json
-        │   │   ├── dome.json
-        │   │   ├── furnished.json
-        │   │   ├── Lshape.json
-        │   │   ├── run3D_cube.sh
-        │   │   ├── run3D_dome_quarter.sh
-        │   │   ├── run3D_dome.sh
-        │   │   ├── run3D_furnished.sh
-        │   │   ├── run3D_Lshape.sh
-        │   └── twoD_transfer_learning
-        │       ├── furnished
-        │       │   ├── rect3x3_furn_bs600_reference.json
-        │       │   ├── rect3x3_furn_srcpos_3ppw_bs600_tar.json
-        │       │   ├── rect3x3_furn_srcpos_5ppw_bs600_tar.json
-        │       │   └── rect3x3_source.json
-        │       ├── Lshape
-        │       │   ├── Lshape2_5x2_5_reference.json
-        │       │   ├── Lshape2_5x2_5_srcpos_3ppw_bs600_tar.json
-        │       │   ├── Lshape2_5x2_5_srcpos_5ppw_bs600_tar.json
-        │       │   └── Lshape3x3_source.json
-        │       ├── rect
-        │       │   ├── rect2x2_reference.json
-        │       │   ├── rect2x2_srcpos_3ppw_target.json
-        │       │   └── rect3x3_source.json
-        │       ├── run_furnished_reference.sh
-        │       ├── run_furnished_source.sh
-        │       ├── run_furnished_target.sh
-        │       ├── run_Lshape_reference.sh
-        │       ├── run_Lshape_source.sh
-        │       ├── run_Lshape_target.sh
-        │       ├── run_rect_reference.sh
-        │       ├── run_rect_source.sh
-        │       └── run_rect_target.sh
+    .
+    │   ├── threeD
+    │   │   ├── evaluate3D_cube.sh
+    │   │   ├── evaluate3D_dome_quarter.sh
+    │   │   ├── evaluate3D_dome.sh
+    │   │   ├── evaluate3D_furnished.sh
+    │   │   ├── evaluate3D_Lshape.sh
+    │   │   ├── evaluate3D_speed.sh
+    │   │   ├── setups
+    │   │   │   ├── cube_eval.json
+    │   │   │   ├── cube.json
+    │   │   │   ├── dome_1stquad_eval.json
+    │   │   │   ├── dome_1stquad.json
+    │   │   │   ├── dome_eval.json
+    │   │   │   ├── dome.json
+    │   │   │   ├── furnished_eval.json
+    │   │   │   ├── furnished.json
+    │   │   │   ├── Lshape_eval.json
+    │   │   │   ├── Lshape.json
+    │   │   │   └── settings.json
+    │   │   ├── train3D_cube.sh
+    │   │   ├── train3D_dome_quarter.sh
+    │   │   ├── train3D_dome.sh
+    │   │   ├── train3D_furnished.sh
+    │   │   ├── train3D_Lshape.sh
+    │   └── twoD_transfer_learning
+    │       ├── furnished
+    │       │   ├── rect3x3_furn_bs600_reference.json
+    │       │   ├── rect3x3_furn_srcpos_3ppw_bs600_tar.json
+    │       │   ├── rect3x3_furn_srcpos_5ppw_bs600_tar.json
+    │       │   └── rect3x3_source.json
+    │       ├── Lshape
+    │       │   ├── Lshape2_5x2_5_reference.json
+    │       │   ├── Lshape2_5x2_5_srcpos_3ppw_bs600_tar.json
+    │       │   ├── Lshape2_5x2_5_srcpos_5ppw_bs600_tar.json
+    │       │   └── Lshape3x3_source.json
+    │       ├── rect
+    │       │   ├── rect2x2_reference.json
+    │       │   ├── rect2x2_srcpos_3ppw_target.json
+    │       │   └── rect3x3_source.json
+    │       ├── train2D_furnished_reference.sh
+    │       ├── train2D_furnished_source.sh
+    │       ├── train2D_furnished_target.sh
+    │       ├── train2D_Lshape_reference.sh
+    │       ├── train2D_Lshape_source.sh
+    │       ├── train2D_Lshape_target.sh
+    │       ├── train2D_rect_reference.sh
+    │       ├── train2D_rect_source.sh
+    │       └── train2D_rect_target.sh
+    ├── main1D2D_evaluate_accuracy.py -- for evaluating 2D transfer learning (modify manually to point to the model of interest)
+
+E.g., for training a DeepONet model for the cube geometry (using IBM Spectrum LSF), run
+```bash
+> bsub < scripts/threeD/train3D_cube.sh
+```
+and to evaluate the accuracy generating plots comparing against a reference solution, run
+```bash
+> bsub < scripts/threeD/evaluate3D_cube.sh
+```
+
+The training, validation and test data can be generated with the scripts described [here](https://github.com/dtu-act/libparanumal/tree/master/solvers/acoustics/simulationSetups/deeponet) or be provided by contacting the authors (> 500 GB).

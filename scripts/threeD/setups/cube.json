@@ -1,19 +1,19 @@
 {
-    "id": "furnished_6ppw",
+    "id": "cube_6ppw",
 
-    "___input_dir": "/work3/nibor/1TB/input3D/",
     "input_dir": "/localssd0/nibor/",
+    "___input_dir": "/work3/nibor/1TB/input3D/",
     "output_dir": "/work3/nibor/data/deeponet/output3D",
 
-    "training_data_dir": "furnished_1000hz_p6_6ppw_srcs4799_train",
-    "testing_data_dir": "furnished_1000hz_p4_5ppw_srcs203_val",
+    "training_data_dir": "cube2x2x2_1000hz_p6_6ppw_srcs2826_train",
+    "testing_data_dir": "cube2x2x2_1000hz_p4_5ppw_srcs100_val",
 
     "tmax": 17.0,
     
     "f0_feat": [1.458,0.729,0.486],
     "normalize_data": true,
 
-    "iterations": 60000,
+    "iterations": 80000,
     "use_adaptive_weights": true,
     "decay_steps": 2000,
     "decay_rate": 0.90,
@@ -23,11 +23,6 @@
     "__comment1__": "total batch_size is a multiple of branch and coordinate sizes",
     "batch_size_branch": 64,
     "batch_size_coord": 1000,
-
-    "transfer_learning_DISABLED": {
-        "resume_learning": true,
-        "transfer_model_path": "/work3/nibor/data/deeponet/output3D/furnished_6ppw/models"
-    },
 
     "branch_net": {
         "architecture": "mlp",

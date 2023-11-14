@@ -11,7 +11,7 @@ from enum import Enum
 import os
 from pathlib import Path
 import shutil
-from typing import Callable, List, Optional
+from typing import Callable, List
 import numpy as np
 
 class NetworkArchitectureType(Enum):
@@ -165,3 +165,18 @@ class NetworkArchitecture:
     num_hidden_layers: int
     num_hidden_neurons: int
     num_output_neurons: int
+
+@dataclass
+class EvaluationSettings:
+    model_dir: str
+    data_path: str
+    receiver_pos: [float]
+    tmax: float
+    do_animate: bool
+
+    def __init__(self, settings):
+        self.data_path = settings['validation_data_dir']
+        self.model_dir = settings['model_dir']
+        self.receiver_pos = np.array(settings['recv_pos'])
+        self.tmax = settings['tmax']
+        self.do_animate = settings['do_animate']

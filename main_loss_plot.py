@@ -26,8 +26,8 @@ figs_dir = output_dir
 sim_tag = "loss_spectral_bias_defence_4"
 plot_train_and_val_loss = False
 ids = [("1_baseline_tanh_mlp", "tanh MLP"),
-       ("1_baseline_sine_mlp", "sine MLP"),
-       ("1_baseline_tanh_mod_mlp_pos", "tanh Mod-MLP Positional"),
+       ("1_baseline_tanh_mlp_pos", "tanh MLP Positional"),
+       ("1_baseline_sine_mlp", "sine MLP"),       
        ("1_baseline_sine_mod_mlp_pos", "sine Mod-MLP Positional")
        ]
 
