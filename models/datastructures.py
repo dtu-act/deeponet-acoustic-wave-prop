@@ -170,13 +170,26 @@ class NetworkArchitecture:
 class EvaluationSettings:
     model_dir: str
     data_path: str
-    receiver_pos: [float]
+    receiver_pos: [object]
     tmax: float
-    do_animate: bool
+            
+    snap_to_grid: bool
+    write_full_wave_field: bool
+    write_ir_wav: bool
+    write_ir_plots: bool
+    write_ir_animations: bool
 
     def __init__(self, settings):
+        self.receiver_pos = np.empty(len(settings['recv_pos']), dtype=object)
+        for i_src in range(len(self.receiver_pos)):
+            self.receiver_pos[i_src] = np.array(settings['recv_pos'][i_src])
+
         self.data_path = settings['validation_data_dir']
-        self.model_dir = settings['model_dir']
-        self.receiver_pos = np.array(settings['recv_pos'])
+        self.model_dir = settings['model_dir']        
         self.tmax = settings['tmax']
-        self.do_animate = settings['do_animate']
+
+        self.snap_to_grid = settings['snap_to_grid'] if 'snap_to_grid' in settings else True
+        self.write_full_wave_field = settings['write_full_wave_field']
+        self.write_ir_wav = settings['write_ir_wav']
+        self.write_ir_plots = settings['write_ir_plots']
+        self.write_ir_animations = settings['write_ir_animations']

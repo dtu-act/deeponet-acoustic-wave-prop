@@ -10,13 +10,18 @@ import numpy as np
 from datahandlers.datagenerators import IData
 
 def getNearestFromCoordinates(grid,coords):
-    r0 = np.empty(coords.shape, dtype=float)
-    r0_indxs = np.empty(coords.shape[0], dtype=int)
+    r0 = np.empty(coords.shape[0], dtype=object)
+    r0_indxs = np.empty(coords.shape[0], dtype=object)
 
-    for i,X in enumerate(coords):
-        indx_x = np.sum(np.abs(grid-coords[i,:]),1).argmin()
-        r0[i,:] = grid[indx_x]
-        r0_indxs[i] = int(indx_x)
+    for i_src in range(len(coords)):
+        N_recvs = len(coords[i_src])
+        coord_indxs = np.empty(N_recvs, dtype=int)
+        
+        for j_recv in range(N_recvs):
+            coord_indxs[j_recv] = np.sum(np.abs(grid-coords[i_src][j_recv]),1).argmin()
+        
+        r0[i_src] = grid[coord_indxs]
+        r0_indxs[i_src] = coord_indxs
     
     return r0,r0_indxs
 

@@ -99,15 +99,15 @@ The indexes for the branch net `bn` and `tn` is indicating the layers to freeze 
 For evaluating a trained model, the following Python scripts can be used (see also section "RE-CREATING RESULTS FROM THE PAPER"):
 
     .
-       ├── main1D2D_evaluate_accuracy.py
-       ├── main3D_eval.py
+       ├── main1D2D_eval.py       
        ├── eval3D.py
-       ├── main3D_evaluate_speed.py
+       ├── main3D_eval.py
+       ├── main3D_eval_speed.py
        ├── scripts
        │   ├── evaluate
        │   │   ├── evaluate_speed3D.sh
 
-In 3D, a `JSON` script is used to determine the path to the model to evaluate, the path to a `HDH5` test file containing the sources for which to evaluate the full wave field on a corresponding grid, the receiver positions for evaluating the impulse responses (adjusted to nearest grid point) and the impulse response length (normalized in seconds).
+A `JSON` script is used to specify how to evaluate the model and an example is given below:
 
 ```JSON
 {
@@ -115,20 +115,32 @@ In 3D, a `JSON` script is used to determine the path to the model to evaluate, t
     "validation_data_dir": "/path/to/validation/data/dir",
 
     "tmax": 17,
-    "recv_pos": [
-        [1.66256893, 1.61655235, 1.64047122],
-        [1.52937829, 1.57425201, 1.57134283],
-        [1.53937507, 1.50955164, 1.48763454],
-        [0.33143353, 0.33566815, 0.36886978],
-        [0.42988288, 0.43229115, 0.43867755]
-    ],
 
-    "write_full_wavefield": true,
-    "do_animate": false
+    "write_full_wave_field": true,
+
+    "snap_to_grid": true,
+    "write_ir_plots": true,
+    "write_ir_animations": false,
+    "write_ir_wav": true,        
+
+    "recv_pos": [
+        [[1.66256893, 1.61655235, 1.64047122]],
+        [[1.52937829, 1.57425201, 1.57134283]],
+        [[1.53937507, 1.50955164, 1.48763454]],
+        [[0.33143353, 0.33566815, 0.36886978]],
+        [[0.42988288, 0.43229115, 0.43867755]]
+    ]
 }
 ```
 
-The evaluation scripts are used for plotting and creating `XDMF` files for visualizations in e.g. ParaView.
+* `model_dir`: the path to the model checkpoint to load.
+* `validation_data_dir`: the path to a `HDH5` test file containing the source functions for which to evaluate the model as well as reference solution data.
+* `tmax`: the length of the impulse response predictions (normalized in seconds). 
+* `recv_pos`: the receiver positions where the impulse responses should be evaluated, where the first dimension should correspond to the number of sources in the `HDF5`; the second dimension determines the number of receiver positions to evaluate for the given source. * * `write_full_wave_field`: whether the full predicted wave field should be written to disk (in the `XDMF` format for visualizations in e.g. ParaView). The wave field will be predicted in a grid determined by the validation data. Note that predicting the full wave field can be time consuming.
+* `snap_to_grid`: whether the predicted impulse response positions should be adjusted to the nearest grid point determined by the validation data. To compare with the reference solution, this field should be set to `True`.
+* `write_ir_plots`: whether impulse responses should be plotted and written to disk.
+* `write_ir_animations`: whether the impulse responses should be written as gif animations over time.
+* `write_ir_wav`: whether the impulse responses should be written as `WAV` files.
 
 ## DATA CONVERTERS
 2D Data generated with MATLAB can be assembled (needed if generated using multiple threads in parallel) and downsampled to specific resolutions using the 2D scripts below:
@@ -209,7 +221,7 @@ The scripts below can be used to train and evaluate all DeepONet models from the
     │       ├── train2D_rect_reference.sh
     │       ├── train2D_rect_source.sh
     │       └── train2D_rect_target.sh
-    ├── main1D2D_evaluate_accuracy.py -- for evaluating 2D transfer learning (modify manually to point to the model of interest)
+    ├── main1D2D_eval.py -- for evaluating 2D transfer learning (modify manually to point to the model of interest)
 
 E.g., for training a DeepONet model for the cube geometry (using IBM Spectrum LSF), run
 ```bash

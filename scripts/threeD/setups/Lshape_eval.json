@@ -2,14 +2,20 @@
     "model_dir": "/work3/nibor/data/deeponet/output3D/Lshape_6ppw",
     "validation_data_dir": "/work3/nibor/1TB/input3D/Lshape_1000hz_p4_5ppw_srcpos5_val",
 
-    "tmax": 17,    
-    "recv_pos": [
-        [1.0, 2.00, 1.0],
-        [1.0, 1.75, 1.0],
-        [1.0, 1.50, 1.0],
-        [1.0, 1.75, 1.0],
-        [1.0, 2.00, 1.0]
-    ],
+    "tmax": 17,
+
+    "write_full_wave_field": false,
+
+    "snap_to_grid": true,
+    "write_ir_plots": true,
+    "write_ir_animations": false,
+    "write_ir_wav": true,
     
-    "do_animate": false
+    "recv_pos": [
+        [[1.0, 2.00, 1.0]],
+        [[1.0, 1.75, 1.0]],
+        [[1.0, 1.50, 1.0]],
+        [[1.0, 1.75, 1.0]],
+        [[1.0, 2.00, 1.0]]
+    ]
 }

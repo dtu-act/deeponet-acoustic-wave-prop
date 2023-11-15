@@ -1,8 +1,8 @@
 {
     "id": "cube_6ppw",
 
-    "input_dir": "/localssd0/nibor/",
-    "___input_dir": "/work3/nibor/1TB/input3D/",
+    "___input_dir": "/localssd0/nibor/",
+    "input_dir": "/work3/nibor/1TB/input3D/",
     "output_dir": "/work3/nibor/data/deeponet/output3D",
 
     "training_data_dir": "cube2x2x2_1000hz_p6_6ppw_srcs2826_train",
