@@ -97,5 +97,5 @@ def train(settings_path):
     model.train(dataloader, dataloader_val, nIter, save_every=200)
     model.plotLosses(settings.dirs.figs_dir)
 
-# settings_path = "scripts/threeD/settings.json"
+# settings_path = "scripts/threeD/setups/settings.json"
 # train(settings_path)

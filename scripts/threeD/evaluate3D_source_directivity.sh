@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#BSUB -W 00:10
+#BSUB -W 01:00
 #BSUB -q gpuv100
 #BSUB -n 4
 #BSUB -gpu "num=1:mode=exclusive_process"
@@ -25,4 +25,4 @@ module load tensorrt/8.6.1.6-cuda-12.X
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:$CUDA_ROOT/extras/CUPTI/lib64/"
 
-python3 main3D_eval.py --path_settings="scripts/threeD/setups/cube.json" --path_eval_settings="scripts/threeD/setups/cube_src_dir_eval.json"
+python3 main3D_eval.py --path_settings="scripts/threeD/setups/cube6x6x6.json" --path_eval_settings="scripts/threeD/setups/cube6x6x6_eval.json"
