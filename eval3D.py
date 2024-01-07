@@ -179,7 +179,7 @@ def evaluate(settings_path, settings_eval_path):
                 tsteps_phys,ir_pred_srcs,tmax/c_phys,path_receivers,'pred')
 
 
-# settings_path = "scripts/threeD/setups/cube.json"
-# settings_eval_path = "scripts/threeD/setups/cube_src_dir_eval.json"
+# settings_path = "scripts/threeD/setups/cube6x6x6.json"
+# settings_eval_path = "scripts/threeD/setups/cube6x6x6_eval.json"
 
 # evaluate(settings_path, settings_eval_path)

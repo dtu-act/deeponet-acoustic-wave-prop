@@ -123,7 +123,7 @@ A `JSON` script is used to specify how to evaluate the model and an example is g
     "write_ir_animations": false,
     "write_ir_wav": true,        
 
-    "recv_pos": [
+    "receiver_positions": [
         [[1.66256893, 1.61655235, 1.64047122]],
         [[1.52937829, 1.57425201, 1.57134283]],
         [[1.53937507, 1.50955164, 1.48763454]],
@@ -132,11 +132,42 @@ A `JSON` script is used to specify how to evaluate the model and an example is g
     ]
 }
 ```
+If many identical receivers for different source positions are to be evaluated, the `JSON` script can also be setup as
+
+```JSON
+{
+    "model_dir": "/path/to/trained/model/dir",    
+    "validation_data_dir": "/path/to/validation/data/dir",
+
+    "tmax": 17,
+
+    "write_full_wave_field": true,
+
+    "snap_to_grid": true,
+    "write_ir_plots": true,
+    "write_ir_animations": false,
+    "write_ir_wav": true,        
+
+    "receiver_pos_0": [
+        [[1.66256893, 1.61655235, 1.64047122]]
+    ],
+
+    "receiver_positions": [
+        "receiver_pos_0",
+        "receiver_pos_0",
+        "receiver_pos_0",
+        "receiver_pos_0",
+        "receiver_pos_0"
+    ]
+}
+where the entries in `receiver_positions` are keys to another entry in the `JSON` script.
+```
 
 * `model_dir`: the path to the model checkpoint to load.
 * `validation_data_dir`: the path to a `HDH5` test file containing the source functions for which to evaluate the model as well as reference solution data.
 * `tmax`: the length of the impulse response predictions (normalized in seconds). 
-* `recv_pos`: the receiver positions where the impulse responses should be evaluated, where the first dimension should correspond to the number of sources in the `HDF5`; the second dimension determines the number of receiver positions to evaluate for the given source. * * `write_full_wave_field`: whether the full predicted wave field should be written to disk (in the `XDMF` format for visualizations in e.g. ParaView). The wave field will be predicted in a grid determined by the validation data. Note that predicting the full wave field can be time consuming.
+* `receiver_positions`: the receiver positions where the impulse responses should be evaluated, where the first dimension should correspond to the number of sources in the `HDF5`; the second dimension determines the number of receiver positions to evaluate for the given source. 
+* `write_full_wave_field`: whether the full predicted wave field should be written to disk (in the `XDMF` format for visualizations in e.g. ParaView). The wave field will be predicted in a grid determined by the validation data. Note that predicting the full wave field can be time consuming.
 * `snap_to_grid`: whether the predicted impulse response positions should be adjusted to the nearest grid point determined by the validation data. To compare with the reference solution, this field should be set to `True`.
 * `write_ir_plots`: whether impulse responses should be plotted and written to disk.
 * `write_ir_animations`: whether the impulse responses should be written as gif animations over time.

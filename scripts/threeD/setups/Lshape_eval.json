@@ -11,7 +11,7 @@
     "write_ir_animations": false,
     "write_ir_wav": true,
     
-    "recv_pos": [
+    "receiver_positions": [
         [[1.0, 2.00, 1.0]],
         [[1.0, 1.75, 1.0]],
         [[1.0, 1.50, 1.0]],

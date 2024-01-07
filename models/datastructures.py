@@ -180,15 +180,23 @@ class EvaluationSettings:
     write_ir_animations: bool
 
     def __init__(self, settings):
-        self.receiver_pos = np.empty(len(settings['recv_pos']), dtype=object)
+        self.receiver_pos = np.empty(len(settings['receiver_positions']), dtype=object)
         for i_src in range(len(self.receiver_pos)):
-            self.receiver_pos[i_src] = np.array(settings['recv_pos'][i_src])
+            if isinstance(settings['receiver_positions'][i_src], str):
+                # the receiver positions are located in another entry in the JSON file with the key inside 'recvs'
+                recvs_key = settings['receiver_positions'][i_src]                
+                if recvs_key not in settings:
+                    raise Exception(f"The JSON key {recvs_key} for source index {i_src} was not found. Please add this key to the JSON file with corresponding receiver positions as value.")
+                self.receiver_pos[i_src] = np.array(settings[recvs_key])
+            else:
+                # the receiver positions can be read directly from the 'receiver_positions' array
+                self.receiver_pos[i_src] = np.array(settings['receiver_positions'][i_src])
 
-        self.data_path = settings['validation_data_dir']
+        self.data_path = settings['validation_data_dir'] if 
         self.model_dir = settings['model_dir']        
         self.tmax = settings['tmax']
 
-        self.snap_to_grid = settings['snap_to_grid'] if 'snap_to_grid' in settings else True
+        self.snap_to_grid = settings['snap_to_grid']
         self.write_full_wave_field = settings['write_full_wave_field']
         self.write_ir_wav = settings['write_ir_wav']
         self.write_ir_plots = settings['write_ir_plots']
