@@ -192,7 +192,7 @@ class EvaluationSettings:
                 # the receiver positions can be read directly from the 'receiver_positions' array
                 self.receiver_pos[i_src] = np.array(settings['receiver_positions'][i_src])
 
-        self.data_path = settings['validation_data_dir'] if 
+        self.data_path = settings['validation_data_dir']
         self.model_dir = settings['model_dir']        
         self.tmax = settings['tmax']
 
