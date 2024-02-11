@@ -32,9 +32,9 @@ def writeIRPlots(srcs,recvs,t_phys,ir_pred,tmax_phys,figs_dir,animate=False):
                 ir_pred_i = ir_pred_src_i[:,j]
 
                 format_fn = lambda x: [str("%.2f" % e) for e in x]
-                path_file_td = os.path.join(figs_dir, "td_t=%s_x0=%s_r0=%s.png" % (str("%.2f" % (tmax_phys*343)), format_fn(x0), format_fn(r0)))
-                path_file_tf = os.path.join(figs_dir, "tf_t=%s_x0=%s_r0=%s.png" % (str("%.2f" % (tmax_phys*343)), format_fn(x0), format_fn(r0)))
-                path_file_gif = os.path.join(figs_dir, "anim_t=%s_x0=%s_r0=%s.gif" % (str("%.2f" % (tmax_phys*343)), format_fn(x0), format_fn(r0)))
+                path_file_td = os.path.join(figs_dir, f"{i}_x0=%s_r0=%s_td.png" % (format_fn(x0), format_fn(r0)))
+                path_file_tf = os.path.join(figs_dir, f"{i}_x0=%s_r0=%s_tf.png" % (format_fn(x0), format_fn(r0)))
+                path_file_gif = os.path.join(figs_dir, f"{i}_x0=%s_r0=%s.gif" % (format_fn(x0), format_fn(r0)))
 
                 show_legends = False #i==0
 
@@ -60,9 +60,9 @@ def writeIRPlotsWithReference(srcs,recvs,t_phys,ir_pred,ir_ref,tmax_phys,figs_di
                 ir_pred_i = ir_pred_src_i[:,j]
 
                 format_fn = lambda x: [str("%.2f" % e) for e in x]
-                path_file_td = os.path.join(figs_dir, "td_t=%s_x0=%s_r0=%s.png" % (str("%.2f" % (tmax_phys*343)), format_fn(x0), format_fn(r0)))
-                path_file_tf = os.path.join(figs_dir, "tf_t=%s_x0=%s_r0=%s.png" % (str("%.2f" % (tmax_phys*343)), format_fn(x0), format_fn(r0)))
-                path_file_gif = os.path.join(figs_dir, "anim_t=%s_x0=%s_r0=%s.gif" % (str("%.2f" % (tmax_phys*343)), format_fn(x0), format_fn(r0)))
+                path_file_td = os.path.join(figs_dir, f"{i}_x0=%s_r0=%s_td.png" % (format_fn(x0), format_fn(r0)))
+                path_file_tf = os.path.join(figs_dir, f"{i}_x0=%s_r0=%s_tf.png" % (format_fn(x0), format_fn(r0)))
+                path_file_gif = os.path.join(figs_dir, f"{i}_x0=%s_r0=%s.gif" % (format_fn(x0), format_fn(r0)))
 
                 show_legends = False #i==0
 
@@ -91,7 +91,7 @@ def writeWav(srcs,recvs,t_phys,ir_data,tmax_phys,figs_dir,file_tag=''):
             ir_data_src_i_recv = ir_data_src_i[:,j]
         
             format_fn = lambda x: [str("%.2f" % e) for e in x]
-            file_path = os.path.join(figs_dir, "t=%s_x0=%s_r0=%s_%s.wav" % (str("%.2f" % (tmax_phys*343)), format_fn(x0), format_fn(r0), file_tag))
+            file_path = os.path.join(figs_dir, f"{i}_x0=%s_r0=%s_%s.wav" % (format_fn(x0), format_fn(r0), file_tag))
 
             # Write data to the WAV file
             write_wave_file(file_path, ir_data_src_i_recv, sample_rate)

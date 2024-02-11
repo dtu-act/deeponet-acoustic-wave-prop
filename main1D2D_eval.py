@@ -135,8 +135,8 @@ for i_src in range(x0_srcs.shape[0]):
     S_test_srcs[i_src,:,:] = np.array(s_test_i).reshape(tdim,-1)
 
     # if data_test.dim == 2:
-    #     IO.writeTriangleXdmf(grid_test, conn_test-1, t_test, S_pred_srcs[i_src], os.path.join(path_receivers, f"wavefield_pred{x0}.xdmf"))
-    #     IO.writeTriangleXdmf(grid_test, conn_test-1, t_test, S_test_srcs[i_src], os.path.join(path_receivers, f"wavefield_test{x0}.xdmf"))
+    #     IO.writeTriangleXdmf(grid_test, conn_test-1, t_test, S_pred_srcs[i_src], os.path.join(path_receivers, f"{i_src}_wavefield_pred{x0}.xdmf"))
+    #     IO.writeTriangleXdmf(grid_test, conn_test-1, t_test, S_test_srcs[i_src], os.path.join(path_receivers, f"{i_src}_wavefield_test{x0}.xdmf"))
 
 path_receivers = os.path.join(figs_dir, "receivers")
 Path(path_receivers).mkdir(parents=True, exist_ok=True)

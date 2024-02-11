@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#BSUB -W 01:00
+#BSUB -W 03:00
 #BSUB -q gpuv100
 #BSUB -n 4
 #BSUB -gpu "num=1:mode=exclusive_process"

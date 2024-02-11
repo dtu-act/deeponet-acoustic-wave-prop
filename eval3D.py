@@ -119,10 +119,10 @@ def evaluate(settings_path, settings_eval_path):
 
             IO.writeTetraXdmf(mesh_phys, metadata.conn,
                         tsteps_phys, S_pred_srcs[i_src], 
-                        os.path.join(path_receivers, f"wavefield_pred{x0}.xdmf"))
+                        os.path.join(path_receivers, f"{i_src}_wavefield_pred{x0}.xdmf"))
             IO.writeTetraXdmf(mesh_phys, metadata.conn,
                         tsteps_phys, S_test_srcs[i_src], 
-                        os.path.join(path_receivers, f"wavefield_ref{x0}.xdmf"))
+                        os.path.join(path_receivers, f"{i_src}_wavefield_ref{x0}.xdmf"))
 
     ############## PREDICT IRs ##############
     ir_pred_srcs = np.empty((num_srcs), dtype=object)    
@@ -179,7 +179,7 @@ def evaluate(settings_path, settings_eval_path):
                 tsteps_phys,ir_pred_srcs,tmax/c_phys,path_receivers,'pred')
 
 
-# settings_path = "scripts/threeD/setups/cube6x6x6.json"
-# settings_eval_path = "scripts/threeD/setups/cube6x6x6_eval.json"
+settings_path = "scripts/threeD/setups/cube6x6x6.json"
+settings_eval_path = "scripts/threeD/setups/cube6x6x6_27pos_eval.json"
 
-# evaluate(settings_path, settings_eval_path)
+evaluate(settings_path, settings_eval_path)
