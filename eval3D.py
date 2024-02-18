@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright 2023 Technical University of Denmark
+# Copyright 2024 Technical University of Denmark
 # Author: Nikolas Borrel-Jensen 
 #
 # All Rights Reserved.
@@ -7,8 +7,6 @@
 # Licensed under the MIT License.
 # ==============================================================================
 import os
-import jax
-import jax.numpy as jnp
 import numpy as np
 from pathlib import Path
 from models.datastructures import EvaluationSettings, NetworkArchitectureType, TransferLearning
@@ -16,7 +14,7 @@ import utils.utils as utils
 
 from datahandlers.datagenerators import DataH5Compact, DatasetStreamer
 from models.deeponet import DeepONet
-from models.networks_flax import setupFNN
+from models.networks_flax import setupNetwork
 from utils.feat_expansion import fourierFeatureExpansion_f0
 import datahandlers.data_rw as rw
 import plotting.visualizing as plotting
@@ -27,7 +25,6 @@ import datahandlers.io as IO
 
 def evaluate(settings_path, settings_eval_path):
     prune_spatial = 1
-    mod_fnn_bn, mod_fnn_tn = True, True # manually set (should be defined and read from JSON)
 
     settings_dict = parsers.parseSettings(settings_path)
     settings = SimulationSettings(settings_dict)
@@ -41,7 +38,7 @@ def evaluate(settings_path, settings_eval_path):
 
     tmax = settings_eval.tmax
 
-    do_fnn = settings.branch_net.architecture == NetworkArchitectureType.MLP
+    do_fnn = settings.branch_net.architecture != NetworkArchitectureType.RESNET
     if not do_fnn:
         raise Exception("CNN/ResNet not supported in 3D")
     
@@ -69,22 +66,22 @@ def evaluate(settings_path, settings_eval_path):
 
     ############## SETUP NETWORK ##############
     in_tn = y_feat(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
-    tn_fnn = setupFNN(trunk_net, "tn", mod_fnn=mod_fnn_tn)
-    print(tn_fnn.tabulate(jax.random.PRNGKey(1234), np.expand_dims(jnp.ones(in_tn), [0])))
-    
-    in_bn = metadata.u_shape
-    bn_fnn = setupFNN(branch_net, "bn", mod_fnn=mod_fnn_bn)
-    print(bn_fnn.tabulate(jax.random.PRNGKey(1234), np.expand_dims(jnp.ones(in_bn), [0])))
+    tn_fnn = setupNetwork(trunk_net, in_tn, 'tn')
+    bn_fnn = setupNetwork(branch_net, metadata.u_shape, 'bn')
 
-    lr = settings.training_settings.learning_rate
-    decay_steps=settings.training_settings.decay_steps
-    decay_rate=settings.training_settings.decay_rate
+    lr = settings.training_settings.learning_rate    
+    bs = settings.training_settings.batch_size_branch * settings.training_settings.batch_size_coord,
+    adaptive_weights_shape = bs if settings.training_settings.use_adaptive_weights else []
     transfer_learning = TransferLearning({'transfer_learning': {'resume_learning': True}}, 
                                         settings.dirs.models_dir)
     
-    model = DeepONet(lr, bn_fnn, in_bn, tn_fnn, in_tn, settings.dirs.models_dir, 
-                    decay_steps, decay_rate, do_fnn=do_fnn, 
-                    transfer_learning=transfer_learning)
+    model = DeepONet(lr, bn_fnn, tn_fnn, 
+                     settings.dirs.models_dir,
+                     decay_steps=settings.training_settings.decay_steps,
+                     decay_rate=settings.training_settings.decay_rate,
+                     transfer_learning= transfer_learning,
+                     adaptive_weights_shape=adaptive_weights_shape)
+
 
     model.plotLosses(settings.dirs.figs_dir)
 

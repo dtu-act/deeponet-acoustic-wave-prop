@@ -77,12 +77,10 @@ def train(settings_path):
         y_train = normalizeFourierDataExpansionZero(y_train, data_nonfeat_dim=data_nonfeat_dim)
         y_val = normalizeFourierDataExpansionZero(y_val, data_nonfeat_dim=data_nonfeat_dim)
 
-
     # setup network
     in_tn = y_train.shape[1]
     trunk_nn = setupNetwork(trunk_net, in_tn, 'tn')
-    in_bn = u_train.shape[1]
-    branch_nn = setupNetwork(branch_net, in_bn, 'bn')
+    branch_nn = setupNetwork(branch_net, u_train.shape[1], 'bn')
 
     lr = settings.training_settings.learning_rate    
     bs = settings.training_settings.batch_size_branch * settings.training_settings.batch_size_coord,

@@ -12,7 +12,7 @@ import jax
 import numpy as np
 from models.datastructures import NetworkArchitectureType, TransferLearning
 
-from models.networks_flax import ResNet, setupFNN
+from models.networks_flax import setupNetwork
 from datahandlers.datagenerators import normalizeDomain, normalizeData
 from setup.data import setupData
 from setup.configurations import setupPlotParams
@@ -32,7 +32,6 @@ output_path = "/work3/nibor/data/deeponet/output1D"
 ### overwrite validation data from settings file ###
 # testing_data_path = os.path.join(input_dir, "rect3x3_freq_indep_ppw_2_4_2_from_ppw_dx5_srcs33_val.h5")
 
-mod_fnn = True
 do_animate = False
 tmax = 16.9
 
@@ -43,7 +42,7 @@ settings = SimulationSettings(settings_dict)
 ### uncomment this line if custom testing data should be used ###
 testing_data_path = settings.dirs.testing_data_path
 
-do_fnn = settings.branch_net.architecture == NetworkArchitectureType.MLP
+do_fnn = settings.branch_net.architecture != NetworkArchitectureType.RESNET
 training = settings.training_settings
 branch_net = settings.branch_net
 trunk_net = settings.trunk_net
@@ -88,29 +87,22 @@ y_feat = featexp.fourierFeatureExpansion_f0(settings.f0_feat)
 y_test = y_feat(y_test)
 
 # setup network
-in_tn = y_test.shape[1],
-tn_fnn = setupFNN(trunk_net, "tn", mod_fnn=mod_fnn)
-print(tn_fnn.tabulate(jax.random.PRNGKey(1234), np.expand_dims(jnp.ones(in_tn), [0])))
+in_tn = y_test.shape[1]
+trunk_nn = setupNetwork(trunk_net, in_tn, 'tn')
+in_bn = u_test.shape[1]
+branch_nn = setupNetwork(branch_net, in_bn, 'bn')
 
-if do_fnn:    
-    in_bn = u_test.shape[1],
-    bn_fnn = setupFNN(branch_net, "bn", mod_fnn=mod_fnn)
-    print(bn_fnn.tabulate(jax.random.PRNGKey(1234), np.expand_dims(jnp.ones(in_bn), [0])))
-else:
-    num_blocks : tuple = (3, 3, 3, 3)
-    c_hidden : tuple = (16, 32, 64, 128)
-    in_bn = u_test.shape[1:] 
-    branch_layers = 0*[branch_net.num_hidden_neurons] + [branch_net.num_output_neurons]
-    bn_fnn = ResNet(layers_fnn=branch_layers, num_blocks=num_blocks, c_hidden=c_hidden, act_fn=jax.nn.relu)
-    print(bn_fnn.tabulate(jax.random.PRNGKey(1234), np.expand_dims(jnp.ones(in_bn), [0,3])))
-
-lr = settings.training_settings.learning_rate
-decay_steps=settings.training_settings.decay_steps
-decay_rate=settings.training_settings.decay_rate
+lr = settings.training_settings.learning_rate    
+bs = settings.training_settings.batch_size_branch * settings.training_settings.batch_size_coord,
+adaptive_weights_shape = bs if settings.training_settings.use_adaptive_weights else []
 transfer_learning = TransferLearning({'transfer_learning': {'resume_learning': True}}, settings.dirs.models_dir)
-model = DeepONet(lr, bn_fnn, in_bn, tn_fnn, in_tn, settings.dirs.models_dir, 
-                 decay_steps, decay_rate, do_fnn=do_fnn, 
-                 transfer_learning=transfer_learning)
+
+model = DeepONet(lr, branch_nn, trunk_nn, 
+                 settings.dirs.models_dir,
+                 decay_steps=settings.training_settings.decay_steps,
+                 decay_rate=settings.training_settings.decay_rate,
+                 transfer_learning=transfer_learning,
+                 adaptive_weights_shape=adaptive_weights_shape)
 
 model.plotLosses(settings.dirs.figs_dir)
 
