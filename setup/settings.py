@@ -37,7 +37,7 @@ class SimulationSettings:
         activation = branch_net['activation']
         num_hidden_layers = branch_net['num_hidden_layers']
         num_hidden_neurons = branch_net['num_hidden_neurons']
-        architecture = branch_net['architecture'] if 'architecture' in branch_net else 'mlp'
+        architecture = branch_net['architecture']
         arch_type = parseArchitecture(architecture)
         self.branch_net = NetworkArchitecture(arch_type,activation,num_hidden_layers,num_hidden_neurons,num_output_neurons)
         
@@ -45,7 +45,7 @@ class SimulationSettings:
         activation = trunk_net['activation']
         num_hidden_layers = trunk_net['num_hidden_layers']
         num_hidden_neurons = trunk_net['num_hidden_neurons']
-        architecture = trunk_net['architecture'] if 'architecture' in trunk_net else 'mlp'
+        architecture = trunk_net['architecture']
         arch_type = parseArchitecture(architecture)
         self.trunk_net = NetworkArchitecture(arch_type,activation,num_hidden_layers,num_hidden_neurons,num_output_neurons)
 
@@ -80,7 +80,9 @@ class SimulationSettings:
 def parseArchitecture(architecture: str) -> NetworkArchitectureType:
     if architecture == "mlp":
         return NetworkArchitectureType.MLP
-    elif architecture == "cnn":
-        return NetworkArchitectureType.CNN
+    elif architecture == "mod-mlp":
+        return NetworkArchitectureType.MOD_MLP
+    elif architecture == "resnet":
+        return NetworkArchitectureType.RESNET
     else:
         raise Exception("Architecture type not supported: %s", architecture)

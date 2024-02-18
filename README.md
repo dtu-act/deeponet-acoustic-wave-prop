@@ -49,13 +49,13 @@ To train a DeepONet model, a setup settings file is required indicating what dat
     "batch_size_coord": 1000,
 
     "branch_net": {
-        "architecture": "mlp",
+        "architecture": "mod-mlp",
         "activation": "sin",
         "num_hidden_layers": 5,
         "num_hidden_neurons": 2048
     },
     "trunk_net": {
-        "architecture": "mlp",
+        "architecture": "mod-mlp",
         "activation": "sin",
         "num_hidden_layers": 5,
         "num_hidden_neurons": 2048
@@ -63,8 +63,14 @@ To train a DeepONet model, a setup settings file is required indicating what dat
     "num_output_neurons": 100
 }
 ```
+Most of the parameters should be self-explanatory. 
 
-Most of the parameters should be self-explanatory. Supported architecures for the branch net for the key `architecture` are `mlp` and `cnn`, activation functions can be either `sin`, `tanh`, or `relu`. The key `f0_feat` is given the normalized frequencies for the positional encoding for the Fourier expansions and `tmax` is the normalized physical simulation time. The data in the training and validation folders should be data in `HDF5` data format as generated with the MATLAB (1D and 2D) and libParanumal DG-FEM (3D) solvers.
+Supported `architecture` are 
+* `mod-mlp`: the modified MLP architecture (using 4 uplifting networks) from [N. Borrel-Jensen, S. Goswami, A. P. Engsig-Karup, G. E. Karniadakis, C.-H. Jeong](https://doi.org/10.1073/pnas.2312159120).
+* `mlp`: the traditional MLP architecture. *NOTE* that the original scripts for reproducing the results from [N. Borrel-Jensen, S. Goswami, A. P. Engsig-Karup, G. E. Karniadakis, C.-H. Jeong](https://doi.org/10.1073/pnas.2312159120) mapped the `mlp` keyword to the now `mod-mlp` type, so you would have to update the scripts.
+* `resnet`: the residual neural network implemented as a series of convolutional neural net with skip connections as explained in [N. Borrel-Jensen, A. P. Engsig-Karup, Cheol-Ho Jeong](http://dx.doi.org/10.61782/fa.2023.0930)
+
+Activation functions can be either `sin`, `tanh`, or `relu`. The key `f0_feat` is given the normalized frequencies for the positional encoding for the Fourier expansions and `tmax` is the normalized physical simulation time. The data in the training and validation folders should be data in `HDF5` data format as generated with the MATLAB (1D and 2D) and libParanumal DG-FEM (3D) solvers.
 
 It is possible to continue training a model by adding adding the following to the JSON script:
 

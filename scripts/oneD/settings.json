@@ -23,13 +23,13 @@
     "optimizer": "adam",
 
     "branch_net": {
-        "architecture": "mlp",
+        "architecture": "mod-mlp",
         "activation": "sin",
         "num_hidden_layers": 4,
         "num_hidden_neurons": 512
     },
     "trunk_net": {
-        "architecture": "mlp",
+        "architecture": "mod-mlp",
         "activation": "sin",
         "num_hidden_layers": 4,
         "num_hidden_neurons": 512

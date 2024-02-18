@@ -1,11 +1,12 @@
 # ==============================================================================
-# Copyright 2023 Technical University of Denmark
+# Copyright 2024 Technical University of Denmark
 # Author: Nikolas Borrel-Jensen 
 #
 # All Rights Reserved.
 #
 # Licensed under the MIT License.
 # ==============================================================================
+from typing import Any
 from matplotlib import pyplot as plt
 import jax.numpy as jnp
 import numpy as np
@@ -16,7 +17,7 @@ import flax
 from torch.utils.tensorboard import SummaryWriter
 import os
 import collections
-from models.datastructures import TransferLearning
+from models.datastructures import NetworkArchitectureType, NetworkContainer, TransferLearning
 from utils.timings import TimingsWriter
 from flax.training import checkpoints
 import orbax.checkpoint
@@ -48,23 +49,29 @@ TAG_ADAPTIVE = "adaptive_weights"
 class DeepONet:    
     do_fnn: bool
     params: flax.core.FrozenDict
+    branch_apply: Any
+    trunk_apply: Any    
 
-    def __init__(self, lr, module_bn, dim_bn, module_tn, dim_tn, log_dir, 
-                 decay_steps, decay_rate, do_fnn=True, adaptive_weights_shape=[],
+    def __init__(self, lr: float, module_bn: NetworkContainer, module_tn: NetworkContainer, 
+                 log_dir, decay_steps, decay_rate, adaptive_weights_shape=[],
                  transfer_learning: TransferLearning=None):
 
         self.loss_logger = LossLogger([],[],[])                    
         self.step_offset = 0
 
         self.log_dir = log_dir
-        self.do_fnn = do_fnn
+        self.do_fnn = module_bn.network_type != NetworkArchitectureType.RESNET
+        dim_bn = module_bn.in_dim
+        dim_tn = module_tn.in_dim
 
         if transfer_learning == None:
-            branch_params = module_bn.init(random.PRNGKey(1234), 
-                                           jnp.expand_dims(jnp.ones(dim_bn), [0] if self.do_fnn else [0,3]))
-            trunk_params  = module_tn.init(random.PRNGKey(4321), jnp.ones(dim_tn))
+            branch_params = module_bn.network.init(random.PRNGKey(1234), 
+                                                    jnp.expand_dims(jnp.ones(dim_bn), [0] if self.do_fnn else [0,3]))
+            
+            trunk_params  = module_tn.network.init(random.PRNGKey(4321), 
+                                            jnp.ones(dim_tn))
             if len(adaptive_weights_shape) > 0:
-                self.params = flax.core.frozen_dict.freeze({TAG_BN: branch_params, TAG_TN: trunk_params, TAG_B0: 0.0, 
+                self.params = flax.core.frozen_dict.freeze({TAG_BN: branch_params, TAG_TN: trunk_params, TAG_B0: 0.0,
                                                             TAG_ADAPTIVE: jnp.ones(adaptive_weights_shape)})
             else:
                 self.params = flax.core.frozen_dict.freeze({TAG_BN: branch_params, TAG_TN: trunk_params, TAG_B0: 0.0})
@@ -100,8 +107,8 @@ class DeepONet:
         #print(freeze_layers)
         #print(jax.tree_map(jnp.shape, self.params))
 
-        self.branch_apply = module_bn.apply
-        self.trunk_apply = module_tn.apply
+        self.branch_apply = module_bn.network.apply
+        self.trunk_apply = module_tn.network.apply
 
         self.opt_scheduler = exponential_decay(lr, 
                                                decay_steps=decay_steps, 
@@ -125,20 +132,19 @@ class DeepONet:
             optax.clip_by_global_norm(0.01), # ensure no extreme flucturation in loss
             optax.multi_transform(
                {'opt': optax.adamw(learning_rate=self.opt_scheduler), 
-                'opt_adaptive_weights': optax.adam(1e-5), # hardcoded for now
+                'opt_adaptive_weights': optax.adam(1e-5), # hardcoded
                 'none': optax.set_to_zero()
                 }, 
                 label_fn)
             )
 
-        self.opt_state = self.optimizer.init(self.params)
-        
+        self.opt_state = self.optimizer.init(self.params)        
+
     def operator_net(self, params, B, y):
         trunk_params, b0 = params[TAG_TN], params[TAG_B0]
-        T = self.trunk_apply(trunk_params, y)        
+        T = self.trunk_apply(trunk_params, y)
         
-        outputs = jnp.sum(B * T) + b0
-        return outputs
+        return jnp.sum(B * T) + b0
 
     def branch_net(self, params, u):
         branch_params = params[TAG_BN]
@@ -150,11 +156,12 @@ class DeepONet:
             elif len(u.shape) == 3:
                 return self.branch_apply(branch_params, jnp.expand_dims(u, [0,4]), mutable=['batch_stats'])[0] # in 3-D
             else:
-                raise Exception("Dimension not supported for BN CNN architecture")
-        
+                raise Exception("Dimension not supported for BN ResNet architecture")        
+    
     # Define total loss
     def loss(self, params, batch):
-        return loss_functions.loss(params, batch, self.branch_net, self.operator_net, 
+        return loss_functions.loss(params, batch, 
+                                   self.branch_net, self.operator_net, 
                                    apply_adaptive_weights=TAG_ADAPTIVE in params)
             
     # Define a compiled update step
@@ -214,7 +221,7 @@ class DeepONet:
         timer.startTiming('total_iter') if do_timings else None
         timer.startTiming('dataloader') if do_timings else None
         for _ in pbar_epochs:             
-            for idx, data_batch in enumerate(dataset):
+            for _, data_batch in enumerate(dataset):
                 jax.block_until_ready(data_batch) if do_timings else None
                 timer.endTiming('dataloader') if do_timings else None
 
@@ -308,13 +315,15 @@ class DeepONet:
 
         # training loss
         data_train_batch = next(iter(dataloader_train))
-        loss_train_value = loss_functions.loss(self.params, data_train_batch, self.branch_net, self.operator_net,
+        loss_train_value = loss_functions.loss(self.params, data_train_batch, 
+                                               self.branch_net, self.operator_net,
                                                apply_adaptive_weights=False)
 
         # validation loss
         data_val_batch = next(iter(dataloader_val))
-        loss_val_value = loss_functions.loss(self.params, data_val_batch, self.branch_net, 
-                                             self.operator_net, apply_adaptive_weights=False)
+        loss_val_value = loss_functions.loss(self.params, data_val_batch, 
+                                             self.branch_net, self.operator_net, 
+                                             apply_adaptive_weights=False)
 
         # Store losses
         self.loss_logger.loss_train.append(loss_train_value)

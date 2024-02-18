@@ -12,11 +12,14 @@ import os
 from pathlib import Path
 import shutil
 from typing import Callable, List
+import jax
 import numpy as np
+from flax import linen as nn           # The Linen API
 
-class NetworkArchitectureType(Enum):
-    CNN = 1
-    MLP = 2    
+class NetworkArchitectureType(Enum):    
+    MLP = 1
+    MOD_MLP = 2
+    RESNET = 3
 
 class SimulationDataType(Enum):
     H5COMPACT = 1
@@ -31,6 +34,25 @@ class BoundaryType(Enum):
 class SourceType(Enum):
     IC = 1
     INJECTION = 2
+
+@dataclass
+class NetworkContainer:
+    in_dim: List[float]
+    network_type: NetworkArchitectureType
+    network: nn.Module
+
+    def __init__(self, network: nn.Module, in_dim):
+        self.network_type = network.network_type
+        self.network = network
+        self.in_dim = in_dim
+
+        if network.network_type == NetworkArchitectureType.MOD_MLP:
+            print(network.tabulate(jax.random.PRNGKey(1234), 
+                            np.expand_dims(np.ones(in_dim), [0]))
+                )
+        else:
+            print(network.tabulate(np.random.PRNGKey(1234), np.expand_dims(np.ones(in_dim), [0,3] 
+                                                                           if network.network_type == NetworkArchitectureType.RESNET else [0])))        
 
 @dataclass
 class SourceInfo:
