@@ -37,10 +37,6 @@ def evaluate(settings_path, settings_eval_path):
     settings_eval = EvaluationSettings(settings_eval_dict)
 
     tmax = settings_eval.tmax
-
-    do_fnn = settings.branch_net.architecture != NetworkArchitectureType.RESNET
-    if not do_fnn:
-        raise Exception("CNN/ResNet not supported in 3D")
     
     branch_net = settings.branch_net
     trunk_net = settings.trunk_net
@@ -53,14 +49,16 @@ def evaluate(settings_path, settings_eval_path):
     f = settings.f0_feat
     y_feat = fourierFeatureExpansion_f0(f)
     
+    flatten_ic = branch_net.architecture != NetworkArchitectureType.RESNET
+
     metadata = DataH5Compact(settings_eval.data_path, tmax=tmax, t_norm=c_phys,
-        flatten_ic=do_fnn, data_prune=prune_spatial, norm_data=settings.normalize_data)
+        flatten_ic=flatten_ic, data_prune=prune_spatial, norm_data=settings.normalize_data)
     dataset = DatasetStreamer(metadata, y_feat_extractor=y_feat)
 
     # assert that the time step resolution of the test data is the same as the resolution of the trained model, 
     # since we do not interpolate in time (not needed)
     metadata_model = DataH5Compact(settings.dirs.training_data_path, tmax=tmax, t_norm=c_phys, 
-        flatten_ic=do_fnn, data_prune=prune_spatial, norm_data=settings.normalize_data, MAXNUM_DATASETS=1)
+        flatten_ic=flatten_ic, data_prune=prune_spatial, norm_data=settings.normalize_data, MAXNUM_DATASETS=1)
     if not np.allclose(metadata.tsteps, metadata_model.tsteps):
         raise Exception(f"Time steps differs between training and validation data: \nN_train={len(metadata.tsteps)} N_val={len(metadata_model.tsteps)}, dt_train={metadata.tsteps[1]-metadata.tsteps[0]} and dt_val={metadata_model.tsteps[1]-metadata_model.tsteps[0]}.\n The network is not supposed to learn temporal interpolation. Exiting.")
 

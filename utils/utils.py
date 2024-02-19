@@ -7,7 +7,7 @@
 # Licensed under the MIT License.
 # ==============================================================================
 import numpy as np
-from datahandlers.datagenerators import IData
+import jax.numpy as jnp
 
 def getNearestFromCoordinates(grid,coords):
     r0 = np.empty(coords.shape[0], dtype=object)
@@ -161,24 +161,10 @@ def calcErrors(p_pred, p_ref, x0, r0, f):
 
     return mean_err, mean_err_rel, err_L1, err_rel
 
-# https://github.com/google/jax/discussions/10141
-def toJaxBatch(batch_tf):
-    u, y = map(tf_to_jax, batch_tf[0])
-    outputs, x0 = tf_to_jax(batch_tf[1]), tf_to_jax(batch_tf[2])
-    return (u,y), outputs, x0
-
-def printInfo(dataset: IData, dataset_val: IData, batch_size_coord: int, batch_size: int):
-    batch_size_train = min(batch_size, dataset.N)
-    batch_size_val = min(batch_size, dataset_val.N)
-
-    print(f"Mesh shape: {dataset.mesh.shape}")
-    print(f"Time steps: {len(dataset.tsteps)}")
-    print(f"IC shape: {dataset.u_shape}")
-
-    print(f"Train data size: {dataset.P}")
-    print(f"Train batch size (total): {batch_size_coord*batch_size_train}")
-    print(f"Train num datasets: {dataset.N}")
-
-    print(f"Val data size: {dataset_val.P}")
-    print(f"Val batch size (total): {batch_size_coord*batch_size_val}")
-    print(f"Val num datasets: {dataset_val.N}")
+def expandCnnData(u: list) -> list:
+    if len(u.shape) == 2:
+        return jnp.expand_dims(u, [0,3])
+    elif len(u.shape) == 3:
+        return jnp.expand_dims(u, [0,4])
+    else:
+        raise Exception("Dimension not supported for BN ResNet architecture")

@@ -8,7 +8,6 @@
 # ==============================================================================
 import flax
 import jax.numpy as jnp
-import numpy as np
 from numpy import dtype
 from flax import linen as nn
 from typing import Any
@@ -109,12 +108,6 @@ def sinusoidal_init(is_first=False):
         return W
 
     return init
-
-def setupResNet(net: NetworkArchitecture):
-    num_blocks : tuple = (3, 3, 3, 3) # todo: read from settings
-    c_hidden : tuple = (16, 32, 64, 128) # todo: read from settings
-    branch_layers = 0*[net.num_hidden_neurons] + [net.num_output_neurons]
-    return ResNet(layers_fnn=branch_layers, num_blocks=num_blocks, c_hidden=c_hidden, act_fn=jax.nn.relu) #jnp.sin #jax.nn.relu
     
 # https://datascience.stackexchange.com/questions/66944/is-it-wrong-to-use-glorot-initialization-with-relu-activation
 # https://stackoverflow.com/questions/48641192/xavier-and-he-normal-initialization-difference/48641573#48641573
@@ -146,11 +139,15 @@ def setupNetwork(net: NetworkArchitecture, in_bn: Array, tag: str) -> NetworkCon
     elif net.architecture == NetworkArchitectureType.MOD_MLP:
         layers  = net.num_hidden_layers*[net.num_hidden_neurons]  + [net.num_output_neurons]
         fnn = ModMLP(layers=layers, tag=tag, 
-                                  activation=activation, kernel_init=kernel_init, angular_freq=angular_freq)
+                     activation=activation, kernel_init=kernel_init, angular_freq=angular_freq)
         return NetworkContainer(fnn, in_bn)
     elif net.architecture == NetworkArchitectureType.RESNET:
-        cnn = setupResNet(net)
-        return NetworkContainer(cnn, in_bn)
+        num_group_blocks = net.num_group_blocks # : tuple = (3, 3, 3, 3) # todo: read from settings
+        c_hidden = net.cnn_hidden_layers # : tuple = (16, 32, 64, 128) # todo: read from settings
+        layers  = net.num_hidden_layers*[net.num_hidden_neurons]  + [net.num_output_neurons]
+        kernel_size = (3,3) if len(in_bn.shape) == 2 else (3,3,3)
+        resnet = ResNet(layers_fnn=layers, num_blocks=num_group_blocks, c_hidden=c_hidden, act_fn=activation, kernel_size=kernel_size)
+        return NetworkContainer(resnet, in_bn)
     else:
         raise Exception('Network architecture is not supported')    
 
@@ -231,14 +228,16 @@ class ResNetBlock(nn.Module):
     act_fn : callable  # Activation function
     c_out : int   # Output feature size
     subsample : bool = False  # If True, we apply a stride inside F
-    kernel_size : tuple = (3, 3)
-    network_type: NetworkArchitectureType = NetworkArchitectureType.RESNET
+    kernel_size : tuple = (3, 3)    
 
     @nn.compact
     def __call__(self, x, train=True):
         # Network representing F
+        strides1 = (1, 1) if len(self.kernel_size) == 2 else (1,1,1)        
+        strides2 = (2, 2) if len(self.kernel_size) == 2 else (2,2,2)
+        kernel_size = strides1
         z = nn.Conv(self.c_out, kernel_size=self.kernel_size,
-                    strides=(1, 1) if not self.subsample else (2, 2),
+                    strides=strides1 if not self.subsample else strides2,
                     kernel_init=resnet_kernel_init,
                     use_bias=False)(x)
         z = nn.BatchNorm()(z, use_running_average=not train)
@@ -249,7 +248,7 @@ class ResNetBlock(nn.Module):
         z = nn.BatchNorm()(z, use_running_average=not train)
 
         if self.subsample:
-            x = nn.Conv(self.c_out, kernel_size=(1, 1), strides=(2, 2), kernel_init=resnet_kernel_init)(x)
+            x = nn.Conv(self.c_out, kernel_size=kernel_size, strides=strides2, kernel_init=resnet_kernel_init)(x)
 
         x_out = self.act_fn(z + x)
         return x_out
@@ -289,7 +288,8 @@ class ResNet(nn.Module):
     kernel_size: tuple = (3, 3)
     kernel_sine_init: callable = sinusoidal_init
     act_fn : callable = nn.relu    
-    block_class : nn.Module = ResNetBlock    
+    block_class : nn.Module = ResNetBlock
+    network_type: NetworkArchitectureType = NetworkArchitectureType.RESNET
 
     @nn.compact
     def __call__(self, x, output_layer_indx=-1, train=True):        
@@ -313,7 +313,7 @@ class ResNet(nn.Module):
         
         x = x.reshape((x.shape[0], -1))
 
-        for i, feat in enumerate(self.layers_fnn[0:output_layer_indx]):
+        for _, feat in enumerate(self.layers_fnn[0:output_layer_indx]):
             x = nn.Dense(features=feat, kernel_init=self.kernel_sine_init(True))(x)
             x = jnp.sin(x)
             # x = nn.Dense(features=feat, kernel_init=nn.initializers.xavier_uniform())(x)            

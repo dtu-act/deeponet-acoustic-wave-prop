@@ -11,10 +11,11 @@ from enum import Enum
 import os
 from pathlib import Path
 import shutil
-from typing import Callable, List
+from typing import Callable, List, TypeAlias
 import jax
 import numpy as np
 from flax import linen as nn           # The Linen API
+from utils.utils import expandCnnData
 
 class NetworkArchitectureType(Enum):    
     MLP = 1
@@ -38,21 +39,14 @@ class SourceType(Enum):
 @dataclass
 class NetworkContainer:
     in_dim: List[float]
-    network_type: NetworkArchitectureType
     network: nn.Module
 
     def __init__(self, network: nn.Module, in_dim):
-        self.network_type = network.network_type
         self.network = network
         self.in_dim = in_dim
-
-        if network.network_type == NetworkArchitectureType.MOD_MLP:
-            print(network.tabulate(jax.random.PRNGKey(1234), 
-                            np.expand_dims(np.ones(in_dim), [0]))
-                )
-        else:
-            print(network.tabulate(np.random.PRNGKey(1234), np.expand_dims(np.ones(in_dim), [0,3] 
-                                                                           if network.network_type == NetworkArchitectureType.RESNET else [0])))        
+        
+        is_resnet = network.network_type == NetworkArchitectureType.RESNET
+        print(network.tabulate(jax.random.PRNGKey(1234), expandCnnData(np.ones(in_dim)) if is_resnet else np.expand_dims(np.ones(in_dim), axis=0)))
 
 @dataclass
 class SourceInfo:
@@ -178,21 +172,37 @@ class TrainingSettings:
     optimizer: str
     batch_size_branch: int
     batch_size_coord: int
-    
 
 @dataclass(frozen=True)
-class NetworkArchitecture:
+class MLPArchitecture:
     architecture: NetworkArchitectureType
     activation: str
     num_hidden_layers: int
     num_hidden_neurons: int
     num_output_neurons: int
 
+# "num_group_blocks": [3, 3, 3, 3],
+# "cnn_hidden_layers": [16, 32, 64, 128],
+# "num_hidden_layers": 0,
+# "num_hidden_neurons": 2048
+
+@dataclass(frozen=True)
+class ResNetArchitecture: 
+    architecture: NetworkArchitectureType # = NetworkArchitectureType.RESNET
+    activation: str
+    num_hidden_layers: int
+    num_hidden_neurons: int
+    num_output_neurons: int
+    num_group_blocks: tuple
+    cnn_hidden_layers: tuple
+
+NetworkArchitecture: TypeAlias = MLPArchitecture | ResNetArchitecture
+
 @dataclass
 class EvaluationSettings:
     model_dir: str
     data_path: str
-    receiver_pos: [object]
+    receiver_pos: List[object]
     tmax: float
             
     snap_to_grid: bool

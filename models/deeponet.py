@@ -19,6 +19,7 @@ import os
 import collections
 from models.datastructures import NetworkArchitectureType, NetworkContainer, TransferLearning
 from utils.timings import TimingsWriter
+from utils.utils import expandCnnData
 from flax.training import checkpoints
 import orbax.checkpoint
 from models.networks_flax import flattened_traversal, freezeLayersToKeys, freezeCnnLayersToKeys
@@ -47,7 +48,7 @@ TAG_ADAPTIVE = "adaptive_weights"
 
 # Define the model
 class DeepONet:    
-    do_fnn: bool
+    is_bn_fnn: bool
     params: flax.core.FrozenDict
     branch_apply: Any
     trunk_apply: Any    
@@ -60,13 +61,13 @@ class DeepONet:
         self.step_offset = 0
 
         self.log_dir = log_dir
-        self.do_fnn = module_bn.network_type != NetworkArchitectureType.RESNET
+        self.is_bn_fnn = module_bn.network.network_type != NetworkArchitectureType.RESNET
         dim_bn = module_bn.in_dim
         dim_tn = module_tn.in_dim
 
         if transfer_learning == None:
             branch_params = module_bn.network.init(random.PRNGKey(1234), 
-                                                    jnp.expand_dims(jnp.ones(dim_bn), [0] if self.do_fnn else [0,3]))
+                                                   jnp.expand_dims(jnp.ones(dim_bn), axis=0) if self.is_bn_fnn else expandCnnData(np.ones(dim_bn)))
             
             trunk_params  = module_tn.network.init(random.PRNGKey(4321), 
                                             jnp.ones(dim_tn))
@@ -98,7 +99,7 @@ class DeepONet:
             else:
                 self.params[TAG_ADAPTIVE] = jnp.ones(adaptive_weights_shape)
 
-            if not self.do_fnn:
+            if not self.is_bn_fnn:
                 freeze_layers_cnn = freezeCnnLayersToKeys(self.params[TAG_BN])
                 freeze_layers.update(freeze_layers_cnn)
 
@@ -148,15 +149,10 @@ class DeepONet:
 
     def branch_net(self, params, u):
         branch_params = params[TAG_BN]
-        if self.do_fnn:
+        if self.is_bn_fnn:
             return self.branch_apply(branch_params, u)
         else:
-            if len(u.shape) == 2:
-                return self.branch_apply(branch_params, jnp.expand_dims(u, [0,3]), mutable=['batch_stats'])[0] # in 2-D
-            elif len(u.shape) == 3:
-                return self.branch_apply(branch_params, jnp.expand_dims(u, [0,4]), mutable=['batch_stats'])[0] # in 3-D
-            else:
-                raise Exception("Dimension not supported for BN ResNet architecture")        
+            return self.branch_apply(branch_params, expandCnnData(u), mutable=['batch_stats'])[0]
     
     # Define total loss
     def loss(self, params, batch):

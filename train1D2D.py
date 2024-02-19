@@ -12,7 +12,7 @@ import numpy
 from models.datastructures import NetworkArchitectureType
 
 from models.networks_flax import setupNetwork
-from datahandlers.datagenerators import DataGenerator, normalizeDomain, normalizeData, normalizeFourierDataExpansionZero
+from datahandlers.datagenerators import DataGenerator, normalizeDomain, normalizeFourierDataExpansionZero
 from setup.data import setupData, setupTransferLearningData
 from models.deeponet import DeepONet
 import utils.feat_expansion as featexp
@@ -64,6 +64,7 @@ def train(settings_path):
         y_val = normalizeDomain(y_val, domain_min, domain_max, from_zero=from_zero)
 
     y_feat = featexp.fourierFeatureExpansion_f0(settings.f0_feat)
+    # from datahandlers.datagenerators import normalizeData
     # y_feat = featexp.fourierFeatureExpansion_gaussian((10,3), mean=fmax/2, std_dev=fmax/2)
     # domain_minmax_norm = normalizeData(domain_minmax, domain_min, domain_max, from_zero=from_zero)
     # L_dom = domain_minmax_norm[:,1] - domain_minmax_norm[:,0]
@@ -78,9 +79,9 @@ def train(settings_path):
         y_val = normalizeFourierDataExpansionZero(y_val, data_nonfeat_dim=data_nonfeat_dim)
 
     # setup network
+    branch_nn = setupNetwork(branch_net, u_train.shape[1::], 'bn')
     in_tn = y_train.shape[1]
-    trunk_nn = setupNetwork(trunk_net, in_tn, 'tn')
-    branch_nn = setupNetwork(branch_net, u_train.shape[1], 'bn')
+    trunk_nn = setupNetwork(trunk_net, in_tn, 'tn')    
 
     lr = settings.training_settings.learning_rate    
     bs = settings.training_settings.batch_size_branch * settings.training_settings.batch_size_coord,

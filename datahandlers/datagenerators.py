@@ -221,7 +221,7 @@ class DataH5Compact(IData):
         tag_mesh = "/mesh"
         tag_conn = "/conn"
         tag_umesh = "/umesh"
-        tag_ushape = "/umesh_shape"
+        tag_ushape = "umesh_shape"
         self.tags_field = ["/pressures"]
         self.tag_ufield = "/upressures"             
 
@@ -232,7 +232,7 @@ class DataH5Compact(IData):
             
             umesh_obj = r[tag_umesh]
             umesh = np.array(umesh_obj[:])
-            self.u_shape = [len(umesh)] if flatten_ic else jnp.array(umesh_obj.attrs[tag_ushape][:], dtype=int).tolist()
+            self.u_shape = jnp.array([len(umesh)], dtype=int) if flatten_ic else jnp.array(umesh_obj.attrs[tag_ushape][:], dtype=int)
             self.tsteps = r[self.tags_field[0]].attrs['time_steps']
             self.tsteps = jnp.array([t for t in self.tsteps if t <= tmax/t_norm])
             self.tsteps = self.tsteps*t_norm
@@ -384,3 +384,19 @@ class NumpyLoader(data.DataLoader):
         drop_last=drop_last,
         timeout=timeout,
         worker_init_fn=worker_init_fn)
+    
+def printInfo(dataset: IData, dataset_val: IData, batch_size_coord: int, batch_size: int):
+    batch_size_train = min(batch_size, dataset.N)
+    batch_size_val = min(batch_size, dataset_val.N)
+
+    print(f"Mesh shape: {dataset.mesh.shape}")
+    print(f"Time steps: {len(dataset.tsteps)}")
+    print(f"IC shape: {dataset.u_shape}")
+
+    print(f"Train data size: {dataset.P}")
+    print(f"Train batch size (total): {batch_size_coord*batch_size_train}")
+    print(f"Train num datasets: {dataset.N}")
+
+    print(f"Val data size: {dataset_val.P}")
+    print(f"Val batch size (total): {batch_size_coord*batch_size_val}")
+    print(f"Val num datasets: {dataset_val.N}")

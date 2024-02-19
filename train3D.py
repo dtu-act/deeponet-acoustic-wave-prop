@@ -9,10 +9,10 @@
 import os, shutil
 import numpy as np
 
-import utils.utils as utils
 import datahandlers.data_rw as rw
+from models.datastructures import NetworkArchitectureType
 import setup.parsers as parsers
-from datahandlers.datagenerators import DataH5Compact, DatasetStreamer, NumpyLoader
+from datahandlers.datagenerators import DataH5Compact, DatasetStreamer, NumpyLoader, printInfo
 from models.networks_flax import setupNetwork
 from models.deeponet import DeepONet
 from utils.feat_expansion import fourierFeatureExpansion_f0
@@ -41,12 +41,14 @@ def train(settings_path):
     f = settings.f0_feat
     y_feat = fourierFeatureExpansion_f0(f)
 
+    flatten_ic = branch_net.architecture != NetworkArchitectureType.RESNET
+
     # setup dataloaders
     metadata = DataH5Compact(settings.dirs.training_data_path, tmax=tmax, t_norm=c_phys, 
-        norm_data=settings.normalize_data)
+        norm_data=settings.normalize_data, flatten_ic=flatten_ic)
     dataset = DatasetStreamer(metadata, training.batch_size_coord, y_feat_extractor=y_feat)
     metadata_val = DataH5Compact(settings.dirs.testing_data_path, tmax=tmax, t_norm=c_phys, 
-        norm_data=settings.normalize_data)
+        norm_data=settings.normalize_data, flatten_ic=flatten_ic)
     dataset_val = DatasetStreamer(metadata_val, training.batch_size_coord, y_feat_extractor=y_feat)
     
     dataloader = NumpyLoader(dataset, batch_size=training.batch_size_branch, shuffle=True, drop_last=True)
@@ -55,7 +57,7 @@ def train(settings_path):
     if not np.allclose(metadata.tsteps, metadata_val.tsteps):
         raise Exception(f"Time steps differs between training and validation data: \nN_train={len(metadata.tsteps)}, N_val={len(metadata_val.tsteps)}, dt_train={metadata.tsteps[1]-metadata.tsteps[0]} and dt_val={metadata_val.tsteps[1]-metadata_val.tsteps[0]}.\n The network is not supposed to learn temporal interpolation. Exiting.")
     
-    utils.printInfo(metadata, metadata_val, training.batch_size_coord, training.batch_size_branch)
+    printInfo(metadata, metadata_val, training.batch_size_coord, training.batch_size_branch)
 
     # setup network
     in_tn = y_feat(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
@@ -78,5 +80,5 @@ def train(settings_path):
     model.train(dataloader, dataloader_val, nIter, save_every=200)
     model.plotLosses(settings.dirs.figs_dir)
 
-# settings_path = "scripts/threeD/setups/settings.json"
-# train(settings_path)
+settings_path = "scripts/threeD/setups/settings.json"
+train(settings_path)
