@@ -4,14 +4,14 @@
 
     "tmax": 10.2,
 
-    "write_full_wave_field": true,
+    "write_full_wave_field": false,
 
     "snap_to_grid": false, 
     "write_ir_plots": true,
     "write_ir_animations": false,
     "write_ir_wav": true,
-
-    "receiver_pos_0": [
+    
+    "receiver_positions_all_sources": [
         [2.2462, 3.5460, 2.6344],
         [3.5460, 2.6344, 2.2462],
         [3.7538, 2.4540, 2.6344],
@@ -72,17 +72,5 @@
         [2.8797, 2.6614, 3.9332],
         [2.6614, 3.9332, 2.8797],
         [3.3386, 2.0668, 2.8797]
-    ],
-    
-    "receiver_positions": [
-        "receiver_pos_0",
-        "receiver_pos_0",
-        "receiver_pos_0",
-        "receiver_pos_0",
-        "receiver_pos_0",
-        "receiver_pos_0",
-        "receiver_pos_0",
-        "receiver_pos_0",
-        "receiver_pos_0"
     ]
 }

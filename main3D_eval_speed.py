@@ -8,8 +8,6 @@
 # ==============================================================================
 import os
 import time
-import jax
-import jax.numpy as jnp
 import numpy as np
 from pathlib import Path
 from models.datastructures import NetworkArchitectureType, TransferLearning
@@ -23,11 +21,11 @@ from setup.settings import SimulationSettings
 import setup.parsers as parsers
 
 #id = "bilbao_4ppw_bs96_1500"
-id = "furnished_6ppw"
-output_dir = "/work3/nibor/data/deeponet/output"
-input_dir = "/work3/nibor/1TB/libP"
+id = "dome_6ppw_1stquad_resnet"
+output_dir = "/work3/nibor/data/deeponet/output3D"
+input_dir = "/work3/nibor/1TB/input3D/"
 
-tmax_eval = 0.05
+tmax_eval = 0.5
 # some random receivers
 receivers = np.array([[0.8,0.8,0.8],
                       [0.9,0.9,0.9],
@@ -120,9 +118,19 @@ with open(out_path, 'w') as f:
     f.write('----------------------\n')
     f.write('Runtime measurements of the surrogate model:\n')
     f.write('----------------------\n')
-    f.write(f'#branch layers (pde) = {branch_net.num_hidden_layers}\n')
-    f.write(f'#trunk layers (pde) = {trunk_net.num_hidden_layers}\n')
-    f.write(f'#neurons (pde) = {branch_net.num_hidden_neurons}\n')
+    f.write(f'TRUNK NET: {"MLP" if trunk_net.architecture == 1 else "MOD-MLP"}\n')
+    f.write(f'   #trunk layers (pde) = {trunk_net.num_hidden_layers}\n')
+    f.write(f'   num_output_neurons = {trunk_net.num_output_neurons}\n')
+    if branch_net.architecture ==  NetworkArchitectureType.RESNET:    
+        f.write(f'BRANCH NET: RESNET\n')
+        f.write(f'   num_hidden_neurons = {branch_net.num_hidden_layers}\n')
+        f.write(f'   num_output_neurons = {branch_net.num_output_neurons}\n')
+        f.write(f'   num_output_neurons = {branch_net.num_group_blocks}\n')
+        f.write(f'   cnn_hidden_layers = {branch_net.cnn_hidden_layers}\n')    
+    else:
+        f.write(f'BRANCH NET: {"MLP" if trunk_net.architecture == NetworkArchitectureType.MLP else "MOD-MLP"}\n')
+        f.write(f'   #neurons (pde) = {branch_net.num_hidden_neurons}\n')
+        f.write(f'   num_output_neurons = {branch_net.num_output_neurons}\n')
     f.write(f'tmax time = {tmax_eval}\n')
     f.write(f'fmax = {phys_params.fmax}\n')
     f.write(f'Inferance performance (ms): {evaluation_time_ms}\n')

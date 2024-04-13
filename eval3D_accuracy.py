@@ -12,7 +12,7 @@ from pathlib import Path
 from models.datastructures import EvaluationSettings, NetworkArchitectureType, TransferLearning
 import utils.utils as utils
 
-from datahandlers.datagenerators import DataH5Compact, DatasetStreamer
+from datahandlers.datagenerators import DataH5Compact, DatasetStreamer, getNumberOfSources
 from models.deeponet import DeepONet
 from models.networks_flax import setupNetwork
 from utils.feat_expansion import fourierFeatureExpansion_f0
@@ -32,9 +32,14 @@ def evaluate(settings_path, settings_eval_path):
 
     path_receivers = os.path.join(settings.dirs.figs_dir , "receivers")
     Path(path_receivers).mkdir(parents=True, exist_ok=True)
-
+    
     settings_eval_dict = parsers.parseSettings(settings_eval_path)
-    settings_eval = EvaluationSettings(settings_eval_dict)
+
+    # we need the number of sources to instantiate EvaluationSettings
+    data_path = settings_eval_dict['validation_data_dir']
+    num_src = getNumberOfSources(data_path)
+
+    settings_eval = EvaluationSettings(settings_eval_dict, data_path, num_src)    
 
     tmax = settings_eval.tmax
     
@@ -53,6 +58,7 @@ def evaluate(settings_path, settings_eval_path):
 
     metadata = DataH5Compact(settings_eval.data_path, tmax=tmax, t_norm=c_phys,
         flatten_ic=flatten_ic, data_prune=prune_spatial, norm_data=settings.normalize_data)
+    assert num_src == metadata.N, "mismatch between DataH5Compact's num srcs and previously loaded"
     dataset = DatasetStreamer(metadata, y_feat_extractor=y_feat)
 
     # assert that the time step resolution of the test data is the same as the resolution of the trained model, 
@@ -174,7 +180,13 @@ def evaluate(settings_path, settings_eval_path):
                 tsteps_phys,ir_pred_srcs,tmax/c_phys,path_receivers,'pred')
 
 
-settings_path = "scripts/threeD/setups/cube6x6x6.json"
-settings_eval_path = "scripts/threeD/setups/cube6x6x6_27pos_eval.json"
+# settings_path = "scripts/threeD/setups/cube6x6x6.json"
+# settings_eval_path = "scripts/threeD/setups/cube_6ppw_resnet"
+
+settings_path = "scripts/threeD/setups/cube.json"
+settings_eval_path = "scripts/threeD/setups/cube_eval.json"
+
+# settings_path = "scripts/threeD/setups/settings.json"
+# settings_eval_path = "scripts/threeD/setups/cube_eval.json"
 
 evaluate(settings_path, settings_eval_path)

@@ -1,8 +1,8 @@
 {
-    "id": "dome_6ppw_1stquad",
+    "id": "dome_6ppw_1stquad_resnet",
 
-    "input_dir": "/work3/nibor/1TB/input3D/",
-    "___input_dir": "/localssd0/nibor/",
+    "___input_dir": "/work3/nibor/1TB/input3D/",
+    "input_dir": "/localssd0/nibor/",
     "output_dir": "/work3/nibor/data/deeponet/output3D",
 
     "training_data_dir": "dome_1000hz_p4_6ppw_srcs1849_1stquad_train",
@@ -30,6 +30,15 @@
     },
     
     "branch_net": {
+        "architecture": "resnet",
+        "activation": "relu",
+        "num_group_blocks": [3, 3, 3, 3],
+        "cnn_hidden_layers": [16, 32, 64, 128],
+        "num_hidden_layers": 0,
+        "num_hidden_neurons": 0
+    },
+
+    "branch_net_mlp": {
         "architecture": "mod-mlp",
         "activation": "sin",
         "num_hidden_layers": 5,

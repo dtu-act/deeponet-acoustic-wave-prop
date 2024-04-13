@@ -33,7 +33,7 @@
         "num_hidden_neurons": 0
     },
     "branch_net_mlp": {
-        "architecture": "resnet",
+        "architecture": "mod-mlp",
         "activation": "sin",
         "num_hidden_layers": 5,
         "num_hidden_neurons": 2048

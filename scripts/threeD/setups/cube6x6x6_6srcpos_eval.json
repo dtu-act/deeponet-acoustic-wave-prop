@@ -4,13 +4,13 @@
 
     "tmax": 10.2,
 
-    "write_full_wave_field": true,
+    "write_full_wave_field": false,
 
     "snap_to_grid": false, 
-    "write_ir_plots": true,
+    "write_ir_plots": false,
     "write_ir_animations": false,
     "write_ir_wav": true,
-    
+
     "receiver_positions_all_sources": [
         [2.2462, 3.5460, 2.6344],
         [3.5460, 2.6344, 2.2462],
@@ -72,5 +72,14 @@
         [2.8797, 2.6614, 3.9332],
         [2.6614, 3.9332, 2.8797],
         [3.3386, 2.0668, 2.8797]
+    ],
+
+    "source_positions": [
+        [3.01,3,3],
+        [2.99,3,3],
+        [3,3.01,3],
+        [3,2.99,3],
+        [3,3,3.01],
+        [3,3,2.99]
     ]
 }

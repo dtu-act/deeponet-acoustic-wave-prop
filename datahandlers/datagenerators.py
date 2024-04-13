@@ -190,13 +190,16 @@ class DataXdmf(IData):
     def __del__(self):
         for (_, dataset) in enumerate(self.datasets):
             dataset.close()
+    
+def getNumberOfSources(data_path: str):
+    return len(IO.pathsToFileType(data_path, '.h5', exclude='rectilinear'))
 
 class DataH5Compact(IData):
     simulationDataType: SimulationDataType = SimulationDataType.H5COMPACT
 
     tag_ufield: str    
     data_prune: int    
-    N: int
+    N: int # number of sources
     P: int
     Pmesh: int
     
@@ -346,7 +349,7 @@ class DatasetStreamer(IData):
                 s[j*self.data.Pmesh:(j+1)*self.Pmesh] = dataset[self.data.tags_field[j]][::self.data.data_prune]
             s = s[indxs_coord]
         else:
-            raise Exception('Data type unknown')
+            raise Exception('Data format unknown: should be H5COMPACT or XDMF')
 
         #end_time_1 = time.perf_counter()
         #self.total_time_1 += end_time_1 - start_time_1

@@ -11,7 +11,7 @@ from enum import Enum
 import os
 from pathlib import Path
 import shutil
-from typing import Callable, List, TypeAlias
+from typing import Callable, Dict, List, TypeAlias
 import jax
 import numpy as np
 from flax import linen as nn           # The Linen API
@@ -206,25 +206,53 @@ class EvaluationSettings:
     tmax: float
             
     snap_to_grid: bool
+    source_position_override: List[object]
     write_full_wave_field: bool
     write_ir_wav: bool
     write_ir_plots: bool
     write_ir_animations: bool
 
-    def __init__(self, settings):
-        self.receiver_pos = np.empty(len(settings['receiver_positions']), dtype=object)
-        for i_src in range(len(self.receiver_pos)):
-            if isinstance(settings['receiver_positions'][i_src], str):
-                # the receiver positions are located in another entry in the JSON file with the key inside 'recvs'
-                recvs_key = settings['receiver_positions'][i_src]                
-                if recvs_key not in settings:
-                    raise Exception(f"The JSON key {recvs_key} for source index {i_src} was not found. Please add this key to the JSON file with corresponding receiver positions as value.")
-                self.receiver_pos[i_src] = np.array(settings[recvs_key])
-            else:
-                # the receiver positions can be read directly from the 'receiver_positions' array
-                self.receiver_pos[i_src] = np.array(settings['receiver_positions'][i_src])
+    def __init__(self, settings: Dict, data_path: str, num_srcs: int):
+        key_recv_pos = 'receiver_positions_all_sources'
+        key_recv_groups = 'receiver_position_groups'
+        key_src_pos = 'source_positions'
 
-        self.data_path = settings['validation_data_dir']
+        if (key_recv_groups in settings):
+            if not isinstance(settings[key_recv_groups], list) or \
+                len(settings[key_recv_groups]) == 0 or \
+                not isinstance(settings[key_recv_groups][0], str):
+                raise Exception("Expected non-empty list of string for key receiver_position_groups")
+            elif len(settings[key_recv_groups]) != num_srcs:
+                raise Exception(f"Number of receiver groups (receiver_position_groups) {len(settings[key_recv_groups])} differs from number of source {num_srcs}")
+            
+            self.receiver_pos = self.parseReceiverGroups(settings[key_recv_groups], settings)                
+        elif key_recv_pos in settings:            
+            if not isinstance(settings[key_recv_pos], list) or \
+                len(settings[key_recv_pos]) == 0 or \
+                not isinstance(settings[key_recv_pos][0], list) or \
+                not len(np.array(settings[key_recv_pos]).shape) == 2:
+                raise Exception("Expected non-empty two-dimensional list of receiver coordinates ('receiver_positions_all_sources'). The same receivers are expected to be used for each source position and should NOT be repeated for each source (contrary to 'receiver_position_groups')")
+            self.receiver_pos = np.empty(num_srcs, dtype=object)
+            for i_src in range(num_srcs):
+                # repeat the same receivers for each source
+                self.receiver_pos[i_src] = np.array(settings[key_recv_pos])
+        else:
+            raise Exception("Missing receiver information: expected either of the following keys: 'receiver_position_groups', 'receiver_positions_all_sources'")
+
+        if key_src_pos in settings:
+            if not isinstance(settings['source_positions'], list) or \
+                not len(np.array(settings['source_positions']).shape) == 2:
+                raise Exception("Source positions are explicitly set: Expected non-empty two-dimensional list.")
+            
+            self.source_position_override = np.empty(len(settings['source_positions']), dtype=object)
+
+            for i_src in range(len(self.source_position_override)):
+                self.source_position_override[i_src] = settings['source_positions'][i_src]
+        else:
+            self.source_position_override = np.array([])
+
+        assert data_path == settings['validation_data_dir'], "Mismatch between validation data path in settings and argument input"
+        self.data_path = data_path
         self.model_dir = settings['model_dir']        
         self.tmax = settings['tmax']
 
@@ -233,3 +261,14 @@ class EvaluationSettings:
         self.write_ir_wav = settings['write_ir_wav']
         self.write_ir_plots = settings['write_ir_plots']
         self.write_ir_animations = settings['write_ir_animations']
+
+    def parseReceiverGroups(self, receiver_keys: List, receivers: Dict) -> List[object]:
+        receiver_pos = np.empty(len(receiver_keys), dtype=object)
+        for i_src in range(len(receiver_keys)):
+            # the receiver positions are located in another entry in the JSON file with the key inside 'recvs'
+            recvs_key = receiver_keys[i_src]                
+            if recvs_key not in receivers:
+                raise Exception(f"The JSON key {recvs_key} for source index {i_src} was not found. Please add this key to the JSON file with corresponding receiver positions as value.")
+            receiver_pos[i_src] = np.array(receivers[recvs_key])
+        
+        return receiver_pos
