@@ -12,7 +12,7 @@ from pathlib import Path
 from models.datastructures import EvaluationSettings, NetworkArchitectureType, TransferLearning
 import utils.utils as utils
 
-from datahandlers.datagenerators import DataH5Compact, DatasetStreamer, getNumberOfSources
+from datahandlers.datagenerators import DataH5Compact, DataSourceOnly, DatasetStreamer, getNumberOfSources
 from models.deeponet import DeepONet
 from models.networks_flax import setupNetwork
 from utils.feat_expansion import fourierFeatureExpansion_f0
@@ -33,14 +33,9 @@ def evaluate(settings_path, settings_eval_path):
     path_receivers = os.path.join(settings.dirs.figs_dir , "receivers")
     Path(path_receivers).mkdir(parents=True, exist_ok=True)
     
-    settings_eval_dict = parsers.parseSettings(settings_eval_path)
-
-    # we need the number of sources to instantiate EvaluationSettings
-    data_path = settings_eval_dict['validation_data_dir']
-    num_src = getNumberOfSources(data_path)
-
-    settings_eval = EvaluationSettings(settings_eval_dict, data_path, num_src)    
-
+    settings_eval_dict = parsers.parseSettings(settings_eval_path)  
+    data_dir = getNumberOfSources(settings_eval_dict['validation_data_dir'])      
+    settings_eval = EvaluationSettings(settings_eval_dict, data_dir)
     tmax = settings_eval.tmax
     
     branch_net = settings.branch_net
@@ -56,9 +51,18 @@ def evaluate(settings_path, settings_eval_path):
     
     flatten_ic = branch_net.architecture != NetworkArchitectureType.RESNET
 
-    metadata = DataH5Compact(settings_eval.data_path, tmax=tmax, t_norm=c_phys,
-        flatten_ic=flatten_ic, data_prune=prune_spatial, norm_data=settings.normalize_data)
-    assert num_src == metadata.N, "mismatch between DataH5Compact's num srcs and previously loaded"
+    if len(settings_eval.source_position_override) > 0:
+        metadata = DataSourceOnly(settings_eval.data_path, 
+                                  settings_eval.source_position_override, 
+                                  phys_params,
+                                  tmax=tmax, t_norm=c_phys,
+                                  flatten_ic=flatten_ic, data_prune=prune_spatial, 
+                                  norm_data=settings.normalize_data)
+    else:
+        metadata = DataH5Compact(settings_eval.data_path, tmax=tmax, t_norm=c_phys,
+            flatten_ic=flatten_ic, data_prune=prune_spatial, norm_data=settings.normalize_data)
+        assert settings_eval.num_srcs == metadata.N, "mismatch between DataH5Compact's num srcs and previously loaded"
+    
     dataset = DatasetStreamer(metadata, y_feat_extractor=y_feat)
 
     # assert that the time step resolution of the test data is the same as the resolution of the trained model, 
@@ -130,10 +134,13 @@ def evaluate(settings_path, settings_eval_path):
     x0_srcs = []
 
     if settings_eval.snap_to_grid:
-        r0_list, r0_indxs = utils.getNearestFromCoordinates(xxyyzz_phys, settings_eval.receiver_pos)
-        ir_ref_srcs = np.empty((num_srcs), dtype=object)
+        r0_list, r0_indxs = utils.getNearestFromCoordinates(xxyyzz_phys, settings_eval.receiver_pos)        
     else:
         r0_list = settings_eval.receiver_pos
+    
+    if settings_eval.snap_to_grid and len(settings_eval.source_position_override) == 0:
+        ir_ref_srcs = np.empty((num_srcs), dtype=object)
+    else:
         ir_ref_srcs = []
 
     for i_src in range(num_srcs):        
@@ -152,13 +159,13 @@ def evaluate(settings_path, settings_eval_path):
         ir_predict = model.predict_s(model.params, u_test_i, yi)
 
         ir_pred_srcs[i_src] = np.asarray(ir_predict).reshape(tdim, -1, order='F') # 'F': split reading from beginning of array
-        if settings_eval.snap_to_grid:
+        if len(ir_ref_srcs) > 0:
             ir_ref_srcs[i_src] = np.asarray(s_test_i).reshape(tdim,-1)[:,r0_indxs[i_src]]
     
     setupPlotParams(True)
     
     ############## WRITE RESULTS ##############
-    if settings_eval.snap_to_grid:
+    if len(ir_ref_srcs) > 0:
         if settings_eval.write_ir_plots:
             plotting.writeIRPlotsWithReference(x0_srcs,r0_list,
                 tsteps_phys,ir_pred_srcs,ir_ref_srcs,tmax/c_phys,path_receivers,
@@ -183,10 +190,13 @@ def evaluate(settings_path, settings_eval_path):
 # settings_path = "scripts/threeD/setups/cube6x6x6.json"
 # settings_eval_path = "scripts/threeD/setups/cube_6ppw_resnet"
 
-settings_path = "scripts/threeD/setups/cube.json"
-settings_eval_path = "scripts/threeD/setups/cube_eval.json"
+# settings_path = "scripts/threeD/setups/cube.json"
+# settings_eval_path = "scripts/threeD/setups/cube_eval.json"
 
 # settings_path = "scripts/threeD/setups/settings.json"
 # settings_eval_path = "scripts/threeD/setups/cube_eval.json"
 
-evaluate(settings_path, settings_eval_path)
+# settings_path = "scripts/threeD/setups/cube6x6x6.json"
+# settings_eval_path = "scripts/threeD/setups/cube6x6x6_6srcpos_eval.json"
+
+# evaluate(settings_path, settings_eval_path)

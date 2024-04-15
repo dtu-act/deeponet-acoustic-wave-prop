@@ -24,7 +24,8 @@ class NetworkArchitectureType(Enum):
 
 class SimulationDataType(Enum):
     H5COMPACT = 1
-    XDMF = 2    
+    XDMF = 2
+    SOURCE_ONLY = 3
 
 class BoundaryType(Enum):
     DIRICHLET = 1
@@ -204,6 +205,7 @@ class EvaluationSettings:
     data_path: str
     receiver_pos: List[object]
     tmax: float
+    num_srcs: int
             
     snap_to_grid: bool
     source_position_override: List[object]
@@ -212,18 +214,34 @@ class EvaluationSettings:
     write_ir_plots: bool
     write_ir_animations: bool
 
-    def __init__(self, settings: Dict, data_path: str, num_srcs: int):
+    def __init__(self, settings: Dict, num_srcs: int = -1):
         key_recv_pos = 'receiver_positions_all_sources'
         key_recv_groups = 'receiver_position_groups'
         key_src_pos = 'source_positions'
+
+        if key_src_pos in settings:
+            if not isinstance(settings['source_positions'], list) or \
+                not len(np.array(settings['source_positions']).shape) == 2:
+                raise Exception("Source positions are explicitly set: Expected non-empty two-dimensional list.")
+            
+            self.num_srcs = len(settings['source_positions'])
+            self.source_position_override = np.empty(self.num_srcs, dtype=object)
+
+            for i_src in range(len(self.source_position_override)):
+                self.source_position_override[i_src] = settings['source_positions'][i_src]
+        else:
+            if num_srcs <= 0:
+                raise Exception("Number of source positions cannot be determined from the settings (source not set explicitly, instead loaded from disk), please provide it as input argument to the function")
+            self.num_srcs = num_srcs
+            self.source_position_override = np.array([])
 
         if (key_recv_groups in settings):
             if not isinstance(settings[key_recv_groups], list) or \
                 len(settings[key_recv_groups]) == 0 or \
                 not isinstance(settings[key_recv_groups][0], str):
                 raise Exception("Expected non-empty list of string for key receiver_position_groups")
-            elif len(settings[key_recv_groups]) != num_srcs:
-                raise Exception(f"Number of receiver groups (receiver_position_groups) {len(settings[key_recv_groups])} differs from number of source {num_srcs}")
+            elif len(settings[key_recv_groups]) != self.num_srcs:
+                raise Exception(f"Number of receiver groups (receiver_position_groups) {len(settings[key_recv_groups])} differs from number of source {self.num_srcs}")
             
             self.receiver_pos = self.parseReceiverGroups(settings[key_recv_groups], settings)                
         elif key_recv_pos in settings:            
@@ -232,27 +250,14 @@ class EvaluationSettings:
                 not isinstance(settings[key_recv_pos][0], list) or \
                 not len(np.array(settings[key_recv_pos]).shape) == 2:
                 raise Exception("Expected non-empty two-dimensional list of receiver coordinates ('receiver_positions_all_sources'). The same receivers are expected to be used for each source position and should NOT be repeated for each source (contrary to 'receiver_position_groups')")
-            self.receiver_pos = np.empty(num_srcs, dtype=object)
-            for i_src in range(num_srcs):
+            self.receiver_pos = np.empty(self.num_srcs, dtype=object)
+            for i_src in range(self.num_srcs):
                 # repeat the same receivers for each source
                 self.receiver_pos[i_src] = np.array(settings[key_recv_pos])
         else:
             raise Exception("Missing receiver information: expected either of the following keys: 'receiver_position_groups', 'receiver_positions_all_sources'")
-
-        if key_src_pos in settings:
-            if not isinstance(settings['source_positions'], list) or \
-                not len(np.array(settings['source_positions']).shape) == 2:
-                raise Exception("Source positions are explicitly set: Expected non-empty two-dimensional list.")
-            
-            self.source_position_override = np.empty(len(settings['source_positions']), dtype=object)
-
-            for i_src in range(len(self.source_position_override)):
-                self.source_position_override[i_src] = settings['source_positions'][i_src]
-        else:
-            self.source_position_override = np.array([])
-
-        assert data_path == settings['validation_data_dir'], "Mismatch between validation data path in settings and argument input"
-        self.data_path = data_path
+        
+        self.data_path = settings['validation_data_dir']
         self.model_dir = settings['model_dir']        
         self.tmax = settings['tmax']
 

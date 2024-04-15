@@ -25,4 +25,4 @@ module load tensorrt/8.6.1.6-cuda-12.X
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:$CUDA_ROOT/extras/CUPTI/lib64/"
 
-python3 main3D_eval.py --path_settings="scripts/threeD/setups/cube.json" --path_eval_settings="scripts/threeD/setups/cube_eval.json"
+python3 main3D_eval_accuracy.py --path_settings="scripts/threeD/setups/cube.json" --path_eval_settings="scripts/threeD/setups/cube_eval.json"
