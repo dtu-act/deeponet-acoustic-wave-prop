@@ -25,7 +25,7 @@ def lossCEOD(params: dict, batch_target: list[float],
 
     # extract data        
     inputs_tar, outputs_tar, *_ = batch_target
-    u_tar,y_tar,u_src = inputs_tar
+    u_tar,y_tar,u_src = inputs_tar # make sure to modify the data loader to return u_src
 
     assert len(u_src) > 0
 
@@ -65,7 +65,7 @@ def loss(params: list, batch: list, branch_net: callable, operator_net: callable
 
     # extract data
     inputs, outputs, idx_coord, *_ = batch
-    u,y,_ = inputs
+    u,y = inputs
 
     # RESIDUAL LOSS - forward pass 
     branch_latent_batch = vmap(branch_net, (None, 0))(params, u) # vmaps along branch batch dimension     

@@ -282,6 +282,7 @@ class DataH5Compact(IData):
             dataset.close()
 
 class DatasetH5Mock:
+    '''Wrapping a dictionary inside a class with the same interface as the HDF5 object (in Python, can we restrict the class implementing a HDF5 interface?)'''
     dict: Dict
 
     def __init__(self, dict):
@@ -296,8 +297,10 @@ class DatasetH5Mock:
     def close(self):
         # mocking HdF5 close method
         pass
-    
+
 class DataSourceOnly(IData):
+    '''Used for inference only where arbitrary source positions can be used. The mesh is loaded from HDF5 to ensure the grid distribution is the same as for the trained model required for the branch net.'''
+
     simulationDataType: SimulationDataType = SimulationDataType.SOURCE_ONLY
     
     N: int # number of sources
@@ -384,10 +387,6 @@ class DataSourceOnly(IData):
     def __del__(self):
         for (_, dataset) in enumerate(self.datasets):
             dataset.close()
-
-
-
-
 
 class DatasetStreamer(IData):  
     dim_input: int

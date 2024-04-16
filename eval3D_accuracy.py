@@ -32,10 +32,16 @@ def evaluate(settings_path, settings_eval_path):
 
     path_receivers = os.path.join(settings.dirs.figs_dir , "receivers")
     Path(path_receivers).mkdir(parents=True, exist_ok=True)
+
+    settings_eval_dict = parsers.parseSettings(settings_eval_path)
+    if 'source_positions' in settings_eval_dict:
+        # sources are explicitly set
+        settings_eval = EvaluationSettings(settings_eval_dict)
+    else:
+        # we read number of sources from filesystem when not explicitly set
+        num_srcs = getNumberOfSources(settings_eval_dict['validation_data_dir'])
+        settings_eval = EvaluationSettings(settings_eval_dict, num_srcs)        
     
-    settings_eval_dict = parsers.parseSettings(settings_eval_path)  
-    data_dir = getNumberOfSources(settings_eval_dict['validation_data_dir'])      
-    settings_eval = EvaluationSettings(settings_eval_dict, data_dir)
     tmax = settings_eval.tmax
     
     branch_net = settings.branch_net
