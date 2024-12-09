@@ -1,20 +1,20 @@
 #!/bin/bash
 
-#BSUB -W 00:10
+#BSUB -W 00:30
 #BSUB -q gpuv100
 #BSUB -n 4
 #BSUB -gpu "num=1:mode=exclusive_process"
 #BSUB -R "span[hosts=1]"
 #BSUB -R "rusage[mem=32GB]"
-#BSUB -J cube3D_eval
+#BSUB -J cube3D_src_dir
 
 ### -- Notify me by email when execution begins --
 #BSUB -B
 ### -- Notify me by email when execution ends   --
 #BSUB -N
 ### -- Specify the output and error file. %J is the job-id --
-#BSUB -o "/work3/nibor/data/logs/deeponet_cube3d_%J.out"
-#BSUB -e "/work3/nibor/data/logs/deeponet_cube3d_%J.err"
+#BSUB -o "/work3/nibor/data/logs/deeponet_cube3d_src_dir_%J.out"
+#BSUB -e "/work3/nibor/data/logs/deeponet_cube3d_src_dir_%J.err"
 
 export PYTHONPATH="${PYTHONPATH}:/zhome/00/4/50173/.local/bin"
 
@@ -25,4 +25,4 @@ module load tensorrt/8.6.1.6-cuda-12.X
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:$CUDA_ROOT/extras/CUPTI/lib64/"
 
-python3 main3D_eval_accuracy.py --path_settings="scripts/threeD/setups/cube.json" --path_eval_settings="scripts/threeD/setups/cube_eval.json"
+python3 main3D_eval_accuracy.py --path_settings="scripts/threeD/setups/cube6x6x6.json" --path_eval_settings="scripts/threeD/setups/cube6x6x6_216pos_eval.json"

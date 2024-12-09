@@ -8,28 +8,24 @@
 # ==============================================================================
 import os
 import time
-import jax
-import jax.numpy as jnp
 import numpy as np
 from pathlib import Path
 from models.datastructures import NetworkArchitectureType, TransferLearning
-import utils.utils as utils
 
 from datahandlers.datagenerators import DataH5Compact, DatasetStreamer
 from models.deeponet import DeepONet
-from models.networks_flax import modified_MLP
+from models.networks_flax import setupNetwork
 from utils.feat_expansion import fourierFeatureExpansion_f0
 import datahandlers.data_rw as rw
-import plotting.visualizing as plotting
 from setup.settings import SimulationSettings
 import setup.parsers as parsers
 
 #id = "bilbao_4ppw_bs96_1500"
-id = "furnished_6ppw"
-output_dir = "/work3/nibor/data/deeponet/output"
-input_dir = "/work3/nibor/1TB/libP"
+id = "dome_6ppw_1stquad_resnet"
+output_dir = "/work3/nibor/data/deeponet/output3D"
+input_dir = "/work3/nibor/1TB/input3D/"
 
-tmax_eval = 0.05
+tmax_eval = 0.5
 # some random receivers
 receivers = np.array([[0.8,0.8,0.8],
                       [0.9,0.9,0.9],
@@ -43,7 +39,7 @@ settings_dict = parsers.parseSettings(settings_path)
 settings = SimulationSettings(settings_dict, input_dir=input_dir, output_dir=output_dir)
 settings.dirs.createDirs()
 
-do_fnn = settings.branch_net.architecture == NetworkArchitectureType.MLP
+do_fnn = settings.branch_net.architecture != NetworkArchitectureType.RESNET
 training = settings.training_settings
 branch_net = settings.branch_net
 trunk_net = settings.trunk_net
@@ -69,19 +65,23 @@ in_tn = y_feat(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
 branch_layers = branch_net.num_hidden_layers*[branch_net.num_hidden_neurons] + [branch_net.num_output_neurons]
 trunk_layers  = trunk_net.num_hidden_layers*[trunk_net.num_hidden_neurons]  + [trunk_net.num_output_neurons]
 
-bn_fnn = modified_MLP(layers=branch_layers, tag="bn")
-tn_fnn = modified_MLP(layers=trunk_layers, tag="tn")
-print(bn_fnn.tabulate(jax.random.PRNGKey(1234), jnp.ones((1, in_bn))))
-print(tn_fnn.tabulate(jax.random.PRNGKey(1234), jnp.ones((1, in_tn))))    
+# setup network
+in_tn = y_feat(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
+tn_fnn = setupNetwork(trunk_net, in_tn, 'tn')
+bn_fnn = setupNetwork(branch_net, metadata.u_shape, 'bn')
 
-lr = settings.training_settings.learning_rate
-decay_steps=settings.training_settings.decay_steps
-decay_rate=settings.training_settings.decay_rate
+lr = settings.training_settings.learning_rate    
+bs = settings.training_settings.batch_size_branch * settings.training_settings.batch_size_coord,
+adaptive_weights_shape = bs if settings.training_settings.use_adaptive_weights else []
 transfer_learning = TransferLearning({'transfer_learning': {'resume_learning': True}}, 
                                      settings.dirs.models_dir)
-model = DeepONet(lr, bn_fnn, in_bn, tn_fnn, in_tn, settings.dirs.models_dir, 
-                 decay_steps, decay_rate, do_fnn=do_fnn, 
-                 transfer_learning=transfer_learning)
+
+model = DeepONet(lr, bn_fnn, tn_fnn, 
+                 settings.dirs.models_dir,
+                 decay_steps=settings.training_settings.decay_steps,
+                 decay_rate=settings.training_settings.decay_rate,
+                 transfer_learning=transfer_learning,
+                 adaptive_weights_shape=adaptive_weights_shape)
 
 path_receivers = os.path.join(settings.dirs.figs_dir , "receivers")
 Path(path_receivers).mkdir(parents=True, exist_ok=True)
@@ -118,9 +118,19 @@ with open(out_path, 'w') as f:
     f.write('----------------------\n')
     f.write('Runtime measurements of the surrogate model:\n')
     f.write('----------------------\n')
-    f.write(f'#branch layers (pde) = {branch_net.num_hidden_layers}\n')
-    f.write(f'#trunk layers (pde) = {trunk_net.num_hidden_layers}\n')
-    f.write(f'#neurons (pde) = {branch_net.num_hidden_neurons}\n')
+    f.write(f'TRUNK NET: {"MLP" if trunk_net.architecture == 1 else "MOD-MLP"}\n')
+    f.write(f'   #trunk layers (pde) = {trunk_net.num_hidden_layers}\n')
+    f.write(f'   num_output_neurons = {trunk_net.num_output_neurons}\n')
+    if branch_net.architecture ==  NetworkArchitectureType.RESNET:    
+        f.write(f'BRANCH NET: RESNET\n')
+        f.write(f'   num_hidden_neurons = {branch_net.num_hidden_layers}\n')
+        f.write(f'   num_output_neurons = {branch_net.num_output_neurons}\n')
+        f.write(f'   num_output_neurons = {branch_net.num_group_blocks}\n')
+        f.write(f'   cnn_hidden_layers = {branch_net.cnn_hidden_layers}\n')    
+    else:
+        f.write(f'BRANCH NET: {"MLP" if trunk_net.architecture == NetworkArchitectureType.MLP else "MOD-MLP"}\n')
+        f.write(f'   #neurons (pde) = {branch_net.num_hidden_neurons}\n')
+        f.write(f'   num_output_neurons = {branch_net.num_output_neurons}\n')
     f.write(f'tmax time = {tmax_eval}\n')
     f.write(f'fmax = {phys_params.fmax}\n')
     f.write(f'Inferance performance (ms): {evaluation_time_ms}\n')

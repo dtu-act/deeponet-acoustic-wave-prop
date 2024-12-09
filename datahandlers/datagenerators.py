@@ -13,7 +13,7 @@ from functools import partial
 from torch.utils import data
 import h5py
 import numpy as np
-from typing import Callable
+from typing import Callable, Dict
 from pathlib import Path
 import itertools
 import time
@@ -22,6 +22,7 @@ from models.datastructures import SimulationDataType
 import datahandlers.io as IO
 
 IC_NORM = True
+AMPLITUDE = 2 # HACK: pressure min/max hardcoded
 
 def normalizeFourierDataExpansionZero(data, data_nonfeat_dim, ymin=-1, ymax=1):
     # used for normalizing cos/sin domain from [-1,1] to [0,1] (for relu activation function)    
@@ -191,12 +192,15 @@ class DataXdmf(IData):
         for (_, dataset) in enumerate(self.datasets):
             dataset.close()
 
+def getNumberOfSources(data_path: str):
+    return len(IO.pathsToFileType(data_path, '.h5', exclude='rectilinear'))
+
 class DataH5Compact(IData):
     simulationDataType: SimulationDataType = SimulationDataType.H5COMPACT
 
     tag_ufield: str    
     data_prune: int    
-    N: int
+    N: int # number of sources
     P: int
     Pmesh: int
     
@@ -221,7 +225,7 @@ class DataH5Compact(IData):
         tag_mesh = "/mesh"
         tag_conn = "/conn"
         tag_umesh = "/umesh"
-        tag_ushape = "/umesh_shape"
+        tag_ushape = "umesh_shape"
         self.tags_field = ["/pressures"]
         self.tag_ufield = "/upressures"             
 
@@ -232,7 +236,7 @@ class DataH5Compact(IData):
             
             umesh_obj = r[tag_umesh]
             umesh = np.array(umesh_obj[:])
-            self.u_shape = [len(umesh)] if flatten_ic else jnp.array(umesh_obj.attrs[tag_ushape][:], dtype=int).tolist()
+            self.u_shape = jnp.array([len(umesh)], dtype=int) if flatten_ic else jnp.array(umesh_obj.attrs[tag_ushape][:], dtype=int)
             self.tsteps = r[self.tags_field[0]].attrs['time_steps']
             self.tsteps = jnp.array([t for t in self.tsteps if t <= tmax/t_norm])
             self.tsteps = self.tsteps*t_norm
@@ -277,6 +281,113 @@ class DataH5Compact(IData):
         for (_, dataset) in enumerate(self.datasets):
             dataset.close()
 
+class DatasetH5Mock:
+    '''Wrapping a dictionary inside a class with the same interface as the HDF5 object (in Python, can we restrict the class implementing a HDF5 interface?)'''
+    dict: Dict
+
+    def __init__(self, dict):
+        self.dict = dict
+
+    def __getitem__(self, item):
+        return self.dict[item]
+    
+    def __contains__(self, key):
+        return key in self.dict
+
+    def close(self):
+        # mocking HdF5 close method
+        pass
+
+class DataSourceOnly(IData):
+    '''Used for inference only where arbitrary source positions can be used. The mesh is loaded from HDF5 to ensure the grid distribution is the same as for the trained model required for the branch net.'''
+
+    simulationDataType: SimulationDataType = SimulationDataType.SOURCE_ONLY
+    
+    N: int # number of sources
+    P: int
+    Pmesh: int
+    
+    xmin: float
+    xmax: float
+    normalize_data: bool
+    
+    datasets: list[h5py.File] = []
+    mesh: list = []
+    conn: list = []
+    tsteps: list[float] = []
+    tt: list[float] = []
+    tags_field: list[str] = []
+
+    # MAXNUM_DATASETS: SET TO E.G: 500 WHEN DEBUGGING ON MACHINES WITH LESS RESOURCES
+    def __init__(self, data_path, source_pos, params, tmax=float('inf'), t_norm=1, flatten_ic=True, data_prune=1, norm_data=False):
+        filenamesH5 = IO.pathsToFileType(data_path, '.h5', exclude='rectilinear')
+        self.data_prune = data_prune
+        self.normalize_data = norm_data        
+
+        # NOTE: we assume meshes, tags, etc are the same accross all xdmf datasets
+        tag_mesh = "/mesh"
+        tag_conn = "/conn"
+        tag_umesh = "/umesh"
+        tag_ushape = "umesh_shape"
+        self.tags_field = ["/pressures"]
+        self.tag_ufield = "/upressures"             
+
+        with h5py.File(filenamesH5[0]) as r:
+            self.mesh = np.array(r[tag_mesh][::self.data_prune])
+            self.conn = np.array(r[tag_conn]) if self.data_prune == 1 and tag_conn in r else np.array([])
+            self.xmin, self.xmax = np.min(self.mesh), np.max(self.mesh)
+            
+            umesh_obj = r[tag_umesh]
+            self.u_shape = jnp.array([len(umesh_obj[:])], dtype=int) if flatten_ic else jnp.array(umesh_obj.attrs[tag_ushape][:], dtype=int)
+            self.tsteps = r[self.tags_field[0]].attrs['time_steps']
+            self.tsteps = jnp.array([t for t in self.tsteps if t <= tmax/t_norm])
+            self.tsteps = self.tsteps*t_norm
+
+            if self.normalize_data:
+                self.mesh = self.normalizeSpatial(self.mesh)
+                self.tsteps = self.normalizeTemporal(self.tsteps)
+            
+            gaussianSrc = lambda x, y, z, xyz0, sigma, ampl: \
+            ampl*np.exp(-((x - xyz0[0])**2 + (y - xyz0[1])**2 + (z - xyz0[2])**2)/sigma**2)
+        
+            self.datasets = [] # todo: preload self.N
+            sigma0 = params.c / (np.pi * params.fmax / 2)
+
+            self.N = len(source_pos)
+
+            for i in range(self.N):
+                x0 = source_pos[i]                        
+                ic_field = gaussianSrc(umesh_obj[:,0], umesh_obj[:,1], umesh_obj[:,2], x0, sigma0, AMPLITUDE)
+                # mimic H5 file handle but only for loading source
+                self.datasets.append(DatasetH5Mock({self.tag_ufield: ic_field, 'source_position': x0}))
+                    
+        self.tt = np.repeat(self.tsteps, self.mesh.shape[0])
+        self.num_tsteps = len(self.tsteps)
+        
+        self.Pmesh = self.mesh.shape[0]
+        self.P = self.Pmesh * self.tsteps.shape[0] # total number of time/space points        
+
+    @property
+    def xxyyzztt(self):
+        xxyyzz = np.tile(self.mesh, (len(self.tsteps), 1))
+        return np.hstack((xxyyzz, self.tt.reshape(-1,1)))
+
+    def normalizeSpatial(self, data):
+        return 2*(data - self.xmin)/(self.xmax - self.xmin) - 1
+    
+    def normalizeTemporal(self, data):
+        return data/(self.xmax - self.xmin)/2
+    
+    def denormalizeSpatial(self, data):
+        return (data + 1)/2*(self.xmax - self.xmin) + self.xmin
+
+    def denormalizeTemporal(self, data):
+        return data*2*(self.xmax - self.xmin)
+
+    def __del__(self):
+        for (_, dataset) in enumerate(self.datasets):
+            dataset.close()
+
 class DatasetStreamer(IData):  
     dim_input: int
     Pmesh: int
@@ -287,8 +398,8 @@ class DatasetStreamer(IData):
 
     itercount: itertools.count
 
-    pmin: float = -2 # HACK: pressure min/max hardcoded
-    pmax: float = 2  # HACK: pressure min/max hardcoded
+    pmin: float = -AMPLITUDE # HACK: pressure min/max hardcoded
+    pmax: float = AMPLITUDE  # HACK: pressure min/max hardcoded
     
     __y_feat_extract_fn = Callable[[list],list]
 
@@ -318,7 +429,6 @@ class DatasetStreamer(IData):
         return len(self.data.datasets)
 
     def __getitem__(self, idx):        
-
         dataset = self.data.datasets[idx]
         u_norm = 2*(dataset[self.data.tag_ufield][:] - self.pmin)/(self.pmax-self.pmin)-1 if IC_NORM else dataset[self.data.tag_ufield][:] # [-1,1]
         u = jnp.reshape(u_norm, self.data.u_shape)
@@ -337,7 +447,6 @@ class DatasetStreamer(IData):
         
         # collect all field data for all timesteps - might be memory consuming
         # If memory load gets too heavy, consider selecting points at each timestep
-        #start_time_1 = time.perf_counter()
         if self.data.simulationDataType == SimulationDataType.H5COMPACT:
             s = dataset[self.data.tags_field[0]][0:self.data.num_tsteps,::self.data.data_prune].flatten()[indxs_coord]
         elif self.data.simulationDataType == SimulationDataType.XDMF:
@@ -345,17 +454,15 @@ class DatasetStreamer(IData):
             for j in range(self.data.num_tsteps):
                 s[j*self.data.Pmesh:(j+1)*self.Pmesh] = dataset[self.data.tags_field[j]][::self.data.data_prune]
             s = s[indxs_coord]
+        elif self.data.simulationDataType == SimulationDataType.SOURCE_ONLY:
+            s = []
         else:
-            raise Exception('Data type unknown')
-
-        #end_time_1 = time.perf_counter()
-        #self.total_time_1 += end_time_1 - start_time_1
+            raise Exception('Data format unknown: should be H5COMPACT or XDMF')
 
         # normalize
         x0 = self.data.normalizeSpatial(dataset['source_position'][:]) if 'source_position' in dataset else []    
         
-        u_src = [] # CEOD loss is not supported for 3D data at the moment
-        inputs = (jnp.asarray(u), jnp.asarray(y), u_src)        
+        inputs = jnp.asarray(u), jnp.asarray(y)
         return inputs, jnp.asarray(s), indxs_coord, x0
 
 def numpy_collate(batch):
@@ -384,3 +491,19 @@ class NumpyLoader(data.DataLoader):
         drop_last=drop_last,
         timeout=timeout,
         worker_init_fn=worker_init_fn)
+    
+def printInfo(dataset: IData, dataset_val: IData, batch_size_coord: int, batch_size: int):
+    batch_size_train = min(batch_size, dataset.N)
+    batch_size_val = min(batch_size, dataset_val.N)
+
+    print(f"Mesh shape: {dataset.mesh.shape}")
+    print(f"Time steps: {len(dataset.tsteps)}")
+    print(f"IC shape: {dataset.u_shape}")
+
+    print(f"Train data size: {dataset.P}")
+    print(f"Train batch size (total): {batch_size_coord*batch_size_train}")
+    print(f"Train num datasets: {dataset.N}")
+
+    print(f"Val data size: {dataset_val.P}")
+    print(f"Val batch size (total): {batch_size_coord*batch_size_val}")
+    print(f"Val num datasets: {dataset_val.N}")

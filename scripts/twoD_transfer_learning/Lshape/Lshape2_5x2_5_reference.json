@@ -23,13 +23,13 @@
     "batch_size_coord": 200,
     
     "branch_net": {
-        "architecture": "mlp",
+        "architecture": "mod-mlp",
         "activation": "sin",
         "num_hidden_layers": 2,
         "num_hidden_neurons": 2048
     },
     "trunk_net": {
-        "architecture": "mlp",
+        "architecture": "mod-mlp",
         "activation": "sin",
         "num_hidden_layers": 2,
         "num_hidden_neurons": 2048

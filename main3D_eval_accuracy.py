@@ -7,7 +7,7 @@
 # Licensed under the MIT License.
 # ==============================================================================
 import argparse
-from eval3D import evaluate
+from eval3D_accuracy import evaluate
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--path_settings", type=str, required=True)

@@ -11,16 +11,21 @@ from enum import Enum
 import os
 from pathlib import Path
 import shutil
-from typing import Callable, List
+from typing import Callable, Dict, List, TypeAlias
+import jax
 import numpy as np
+from flax import linen as nn           # The Linen API
+from utils.utils import expandCnnData
 
-class NetworkArchitectureType(Enum):
-    CNN = 1
-    MLP = 2    
+class NetworkArchitectureType(Enum):    
+    MLP = 1
+    MOD_MLP = 2
+    RESNET = 3
 
 class SimulationDataType(Enum):
     H5COMPACT = 1
-    XDMF = 2    
+    XDMF = 2
+    SOURCE_ONLY = 3
 
 class BoundaryType(Enum):
     DIRICHLET = 1
@@ -31,6 +36,18 @@ class BoundaryType(Enum):
 class SourceType(Enum):
     IC = 1
     INJECTION = 2
+
+@dataclass
+class NetworkContainer:
+    in_dim: List[float]
+    network: nn.Module
+
+    def __init__(self, network: nn.Module, in_dim):
+        self.network = network
+        self.in_dim = in_dim
+        
+        is_resnet = network.network_type == NetworkArchitectureType.RESNET
+        print(network.tabulate(jax.random.PRNGKey(1234), expandCnnData(np.ones(in_dim)) if is_resnet else np.expand_dims(np.ones(in_dim), axis=0)))
 
 @dataclass
 class SourceInfo:
@@ -156,27 +173,107 @@ class TrainingSettings:
     optimizer: str
     batch_size_branch: int
     batch_size_coord: int
-    
 
 @dataclass(frozen=True)
-class NetworkArchitecture:
+class MLPArchitecture:
     architecture: NetworkArchitectureType
     activation: str
     num_hidden_layers: int
     num_hidden_neurons: int
     num_output_neurons: int
 
+# "num_group_blocks": [3, 3, 3, 3],
+# "cnn_hidden_layers": [16, 32, 64, 128],
+# "num_hidden_layers": 0,
+# "num_hidden_neurons": 2048
+
+@dataclass(frozen=True)
+class ResNetArchitecture: 
+    architecture: NetworkArchitectureType # = NetworkArchitectureType.RESNET
+    activation: str
+    num_hidden_layers: int
+    num_hidden_neurons: int
+    num_output_neurons: int
+    num_group_blocks: tuple
+    cnn_hidden_layers: tuple
+
+NetworkArchitecture: TypeAlias = MLPArchitecture | ResNetArchitecture
+
 @dataclass
 class EvaluationSettings:
     model_dir: str
     data_path: str
-    receiver_pos: [float]
+    receiver_pos: List[object]
     tmax: float
-    do_animate: bool
+    num_srcs: int
+            
+    snap_to_grid: bool
+    source_position_override: List[object]
+    write_full_wave_field: bool
+    write_ir_wav: bool
+    write_ir_plots: bool
+    write_ir_animations: bool
 
-    def __init__(self, settings):
+    def __init__(self, settings: Dict, num_srcs: int = -1):
+        key_recv_pos = 'receiver_positions_all_sources'
+        key_recv_groups = 'receiver_position_groups'
+        key_src_pos = 'source_positions'
+
+        if key_src_pos in settings:
+            if not isinstance(settings['source_positions'], list) or \
+                not len(np.array(settings['source_positions']).shape) == 2:
+                raise Exception("Source positions are explicitly set: Expected non-empty two-dimensional list.")
+            
+            self.num_srcs = len(settings['source_positions'])
+            self.source_position_override = np.empty(self.num_srcs, dtype=object)
+
+            for i_src in range(len(self.source_position_override)):
+                self.source_position_override[i_src] = settings['source_positions'][i_src]
+        else:
+            if num_srcs <= 0:
+                raise Exception("Number of source positions cannot be determined from the settings (source not set explicitly, instead loaded from disk), please provide it as input argument to the function")
+            self.num_srcs = num_srcs
+            self.source_position_override = np.array([])
+
+        if (key_recv_groups in settings):
+            if not isinstance(settings[key_recv_groups], list) or \
+                len(settings[key_recv_groups]) == 0 or \
+                not isinstance(settings[key_recv_groups][0], str):
+                raise Exception("Expected non-empty list of string for key receiver_position_groups")
+            elif len(settings[key_recv_groups]) != self.num_srcs:
+                raise Exception(f"Number of receiver groups (receiver_position_groups) {len(settings[key_recv_groups])} differs from number of source {self.num_srcs}")
+            
+            self.receiver_pos = self.parseReceiverGroups(settings[key_recv_groups], settings)                
+        elif key_recv_pos in settings:            
+            if not isinstance(settings[key_recv_pos], list) or \
+                len(settings[key_recv_pos]) == 0 or \
+                not isinstance(settings[key_recv_pos][0], list) or \
+                not len(np.array(settings[key_recv_pos]).shape) == 2:
+                raise Exception("Expected non-empty two-dimensional list of receiver coordinates ('receiver_positions_all_sources'). The same receivers are expected to be used for each source position and should NOT be repeated for each source (contrary to 'receiver_position_groups')")
+            self.receiver_pos = np.empty(self.num_srcs, dtype=object)
+            for i_src in range(self.num_srcs):
+                # repeat the same receivers for each source
+                self.receiver_pos[i_src] = np.array(settings[key_recv_pos])
+        else:
+            raise Exception("Missing receiver information: expected either of the following keys: 'receiver_position_groups', 'receiver_positions_all_sources'")
+        
         self.data_path = settings['validation_data_dir']
-        self.model_dir = settings['model_dir']
-        self.receiver_pos = np.array(settings['recv_pos'])
+        self.model_dir = settings['model_dir']        
         self.tmax = settings['tmax']
-        self.do_animate = settings['do_animate']
+
+        self.snap_to_grid = settings['snap_to_grid']
+        self.write_full_wave_field = settings['write_full_wave_field']
+        self.write_ir_wav = settings['write_ir_wav']
+        self.write_ir_plots = settings['write_ir_plots']
+        self.write_ir_animations = settings['write_ir_animations']
+
+    def parseReceiverGroups(self, receiver_keys: List, receivers: Dict) -> List[object]:
+        receiver_pos = np.empty(len(receiver_keys), dtype=object)
+        for i_src in range(len(receiver_keys)):
+            # the receiver positions are located in another entry in the JSON file with the key inside 'recvs'
+            recvs_key = receiver_keys[i_src]                
+            if recvs_key not in receivers:
+                raise Exception(f"The JSON key {recvs_key} for source index {i_src} was not found. Please add this key to the JSON file with corresponding receiver positions as value.")
+            receiver_pos[i_src] = np.array(receivers[recvs_key])
+        
+        return receiver_pos

@@ -2,14 +2,26 @@
     "model_dir": "/work3/nibor/data/deeponet/output3D/cube_6ppw",    
     "validation_data_dir": "/work3/nibor/1TB/input3D/cube2x2x2_1000hz_p4_5ppw_srcpos5_val",
 
-    "tmax": 17,    
-    "recv_pos": [
-        [1.66256893, 1.61655235, 1.64047122],
-        [1.52937829, 1.57425201, 1.57134283],
-        [1.53937507, 1.50955164, 1.48763454],
-        [0.33143353, 0.33566815, 0.36886978],
-        [0.42988288, 0.43229115, 0.43867755]
-    ],
+    "tmax": 17,
+    
+    "write_full_wave_field": false,
 
-    "do_animate": false
+    "snap_to_grid": true,
+    "write_ir_plots": true,
+    "write_ir_animations": false,
+    "write_ir_wav": true,
+
+    "recv_pos_0": [[1.66256893, 1.61655235, 1.64047122]],
+    "recv_pos_1": [[1.52937829, 1.57425201, 1.57134283]],
+    "recv_pos_2": [[1.53937507, 1.50955164, 1.48763454]],
+    "recv_pos_3": [[0.33143353, 0.33566815, 0.36886978]],
+    "recv_pos_4": [[0.42988288, 0.43229115, 0.43867755]],
+
+    "receiver_position_groups": [
+        "recv_pos_0",
+        "recv_pos_1",
+        "recv_pos_2",
+        "recv_pos_3",    
+        "recv_pos_4"
+    ]
 }

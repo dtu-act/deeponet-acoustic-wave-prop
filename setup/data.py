@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright 2023 Technical University of Denmark
+# Copyright 2024 Technical University of Denmark
 # Author: Nikolas Borrel-Jensen 
 #
 # All Rights Reserved.
@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import utils.utils as utils
 from setup.settings import TransferLearning
 import datahandlers.data_rw as rw
+import jax.numpy as jnp
 
 def setupDataResample(p,t,grid,dx_u,xminmax,yminmax,do_plot=False):
     # Resample functions to match num of sensors    

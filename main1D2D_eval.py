@@ -9,10 +9,10 @@
 import os, shutil
 import jax.numpy as jnp
 import jax
-import numpy
+import numpy as np
 from models.datastructures import NetworkArchitectureType, TransferLearning
 
-from models.networks_flax import ResNet, setupFNN
+from models.networks_flax import setupNetwork
 from datahandlers.datagenerators import normalizeDomain, normalizeData
 from setup.data import setupData
 from setup.configurations import setupPlotParams
@@ -32,7 +32,6 @@ output_path = "/work3/nibor/data/deeponet/output1D"
 ### overwrite validation data from settings file ###
 # testing_data_path = os.path.join(input_dir, "rect3x3_freq_indep_ppw_2_4_2_from_ppw_dx5_srcs33_val.h5")
 
-mod_fnn = True
 do_animate = False
 tmax = 16.9
 
@@ -43,7 +42,7 @@ settings = SimulationSettings(settings_dict)
 ### uncomment this line if custom testing data should be used ###
 testing_data_path = settings.dirs.testing_data_path
 
-do_fnn = settings.branch_net.architecture == NetworkArchitectureType.MLP
+do_fnn = settings.branch_net.architecture != NetworkArchitectureType.RESNET
 training = settings.training_settings
 branch_net = settings.branch_net
 trunk_net = settings.trunk_net
@@ -88,35 +87,28 @@ y_feat = featexp.fourierFeatureExpansion_f0(settings.f0_feat)
 y_test = y_feat(y_test)
 
 # setup network
-in_tn = y_test.shape[1],
-tn_fnn = setupFNN(trunk_net, "tn", mod_fnn=mod_fnn)
-print(tn_fnn.tabulate(jax.random.PRNGKey(1234), numpy.expand_dims(jnp.ones(in_tn), [0])))
+in_tn = y_test.shape[1]
+trunk_nn = setupNetwork(trunk_net, in_tn, 'tn')
+in_bn = u_test.shape[1]
+branch_nn = setupNetwork(branch_net, in_bn, 'bn')
 
-if do_fnn:    
-    in_bn = u_test.shape[1],
-    bn_fnn = setupFNN(branch_net, "bn", mod_fnn=mod_fnn)
-    print(bn_fnn.tabulate(jax.random.PRNGKey(1234), numpy.expand_dims(jnp.ones(in_bn), [0])))
-else:
-    num_blocks : tuple = (3, 3, 3, 3)
-    c_hidden : tuple = (16, 32, 64, 128)
-    in_bn = u_test.shape[1:] 
-    branch_layers = 0*[branch_net.num_hidden_neurons] + [branch_net.num_output_neurons]
-    bn_fnn = ResNet(layers_fnn=branch_layers, num_blocks=num_blocks, c_hidden=c_hidden, act_fn=jax.nn.relu)
-    print(bn_fnn.tabulate(jax.random.PRNGKey(1234), numpy.expand_dims(jnp.ones(in_bn), [0,3])))
-
-lr = settings.training_settings.learning_rate
-decay_steps=settings.training_settings.decay_steps
-decay_rate=settings.training_settings.decay_rate
+lr = settings.training_settings.learning_rate    
+bs = settings.training_settings.batch_size_branch * settings.training_settings.batch_size_coord,
+adaptive_weights_shape = bs if settings.training_settings.use_adaptive_weights else []
 transfer_learning = TransferLearning({'transfer_learning': {'resume_learning': True}}, settings.dirs.models_dir)
-model = DeepONet(lr, bn_fnn, in_bn, tn_fnn, in_tn, settings.dirs.models_dir, 
-                 decay_steps, decay_rate, do_fnn=do_fnn, 
-                 transfer_learning=transfer_learning)
+
+model = DeepONet(lr, branch_nn, trunk_nn, 
+                 settings.dirs.models_dir,
+                 decay_steps=settings.training_settings.decay_steps,
+                 decay_rate=settings.training_settings.decay_rate,
+                 transfer_learning=transfer_learning,
+                 adaptive_weights_shape=adaptive_weights_shape)
 
 model.plotLosses(settings.dirs.figs_dir)
 
 tdim = t_test.shape[0]
-S_pred_srcs = numpy.empty((x0_srcs.shape[0],tdim,mesh_test.shape[0]), dtype=float)
-S_test_srcs = numpy.empty((x0_srcs.shape[0],tdim,mesh_test.shape[0]), dtype=float)
+S_pred_srcs = np.empty((x0_srcs.shape[0],tdim,mesh_test.shape[0]), dtype=float)
+S_test_srcs = np.empty((x0_srcs.shape[0],tdim,mesh_test.shape[0]), dtype=float)
 
 figs_dir = settings.dirs.figs_dir
 path_receivers = os.path.join(figs_dir, "receivers")
@@ -131,12 +123,12 @@ for i_src in range(x0_srcs.shape[0]):
     # Predict
     s_pred_i = model.predict_s(model.params, u_test_i, y_test)
 
-    S_pred_srcs[i_src,:,:] = numpy.array(s_pred_i).reshape(tdim,-1)
-    S_test_srcs[i_src,:,:] = numpy.array(s_test_i).reshape(tdim,-1)
+    S_pred_srcs[i_src,:,:] = np.array(s_pred_i).reshape(tdim,-1)
+    S_test_srcs[i_src,:,:] = np.array(s_test_i).reshape(tdim,-1)
 
-    # if isTwoD:
-    #     IO.writeTriangleXdmf(grid_test, conn_test-1, t_test, S_pred_srcs[i_src], os.path.join(path_receivers, f"wavefield_pred{x0}.xdmf"))
-    #     IO.writeTriangleXdmf(grid_test, conn_test-1, t_test, S_test_srcs[i_src], os.path.join(path_receivers, f"wavefield_test{x0}.xdmf"))
+    # if data_test.dim == 2:
+    #     IO.writeTriangleXdmf(grid_test, conn_test-1, t_test, S_pred_srcs[i_src], os.path.join(path_receivers, f"{i_src}_wavefield_pred{x0}.xdmf"))
+    #     IO.writeTriangleXdmf(grid_test, conn_test-1, t_test, S_test_srcs[i_src], os.path.join(path_receivers, f"{i_src}_wavefield_test{x0}.xdmf"))
 
 path_receivers = os.path.join(figs_dir, "receivers")
 Path(path_receivers).mkdir(parents=True, exist_ok=True)
@@ -154,7 +146,18 @@ if settings.normalize_data:
 
 setupPlotParams(True)
 
-plotting.plotAtReceiverPosition(x0_srcs,r0_list, r0_indxs,t_test/c_phys,
-    S_pred_srcs,S_test_srcs,tmax/c_phys,figs_dir=path_receivers,animate=do_animate)
+N_srcs = len(r0_indxs)
+
+ir_ref_srcs = np.empty(N_srcs, dtype=object)
+ir_pred_srcs = np.empty(N_srcs, dtype=object)
+
+for i_src in range(N_srcs):
+    ir_ref_srcs[i_src] = np.expand_dims(S_test_srcs[i_src,:,r0_indxs[i_src]], 1)
+    ir_pred_srcs[i_src] = np.expand_dims(S_pred_srcs[i_src,:,r0_indxs[i_src]], 1)
+
+plotting.writeIRPlotsWithReference(x0_srcs,np.expand_dims(r0_list,1),t_test/c_phys,
+    ir_pred_srcs,ir_ref_srcs,tmax/c_phys,
+    figs_dir=path_receivers,animate=do_animate)
+
 if data_test.dim == 1:
-    plotting.plotWaveFields1D(grid1d_test,t1d_test,S_pred_srcs,S_test_srcs,x0_srcs,tmax,c_phys,figs_dir=path_receivers)
+    plotting.plotWaveFields1D(grid1d_test,t1d_test,S_pred_srcs,S_test_srcs,x0_srcs,c_phys,path_receivers)

@@ -1,10 +1,9 @@
 {
-    "id": "rect2x2_testing",
+    "id": "rect3x3_resnet",
     "input_dir": "/work3/nibor/1TB/input2D",
-    "output_dir": "/work3/nibor/data/deeponet/output2D",
-    
-    "training_data_dir": "rect2x2_freq_indep_ppw_2_6_2_5_train.h5",
-    "testing_data_dir": "rect2x2_freq_indep_ppw_2_4_2_val.h5",
+    "output_dir": "/work3/nibor/data/deeponet/output2D",                          
+    "training_data_dir": "rect3x3_freq_indep_ppw_2_6_2_5_train.h5",
+    "testing_data_dir": "rect3x3_freq_indep_ppw_2_4_2_from_ppw_dx5_srcs33_val.h5",
 
     "tmax": 16.9,
     "normalize_data": true,
@@ -20,12 +19,22 @@
     "batch_size_branch": 64,
     "batch_size_coord": 200,
     
-    "branch_net": {
+    "branch_net_fnn": {
+        "architecture": "mod-mlp",
         "activation": "sin",
         "num_hidden_layers": 2,
         "num_hidden_neurons": 2048
     },
+    "branch_net": {
+        "architecture": "resnet",
+        "activation": "relu",
+        "num_group_blocks": [3, 3, 3, 3],
+        "cnn_hidden_layers": [16, 32, 64, 128],
+        "num_hidden_layers": 0,
+        "num_hidden_neurons": 0
+    },
     "trunk_net": {
+        "architecture": "mod-mlp",
         "activation": "sin",
         "num_hidden_layers": 2,
         "num_hidden_neurons": 2048
