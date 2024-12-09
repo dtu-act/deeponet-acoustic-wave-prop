@@ -7,7 +7,12 @@ The training, validation and testing data in 3D are generated with the Discontin
 The data in 2D are generated with a Matlab [implementation](https://github.com/dtu-act/numerical-pde-solvers/tree/main/SEMSolvers), and can be downloaded from the PNAS Supplementary Information.
 
 ## INSTALLATION
-Python 3.10+, Jax 0.4.10+ and Flax 0.6.10+ are used among other dependencies listed inside `scripts/install/install_packages.sh`. The code has only been tested on MacOS X.
+Python 3.10+, Jax 0.4.10+ and Flax 0.6.10+ are used among other dependencies listed inside `scripts/install/install_packages.sh`:
+
+```
+pip install --user --upgrade optax tensorboard tensorboard_plugin_profile pytorch_lightning  matplotlib smt pydot graphviz h5py tqdm meshio "jax[cuda12_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html flax orbax-checkpoint
+```
+You can also take a look at the `./requirements.txt` file located at the root directory for specific versions used.
 
 ## RUN TRAINING
 To start training a DeepONet model on either 1D/2D or 3D, run 

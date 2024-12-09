@@ -197,8 +197,9 @@ class ModMLP(nn.Module):
         U = nn.Dense(features=self.layers[0], kernel_init=self.kernel_init(True), name=f'transformerU_{self.tag}')(inputs)
         V = nn.Dense(features=self.layers[0], kernel_init=self.kernel_init(True), name=f'transformerV_{self.tag}')(inputs)
         # NOTE: if the models from https://doi.org/10.11583/DTU.24812004 are used, please comment out the following two lines
-        # U = self.activation(U)
-        # V = self.activation(V)
+
+        U = self.activation(U)
+        V = self.activation(V)
 
         for i, feat in enumerate(self.layers[0:output_layer_indx]):
             if i == 0:
