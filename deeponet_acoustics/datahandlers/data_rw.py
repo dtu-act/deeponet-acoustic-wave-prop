@@ -10,8 +10,8 @@ import os
 import h5py
 from pathlib import Path
 import numpy as np
-from models.datastructures import Domain, Physics, SimulationData
-import setup.parsers as parsers
+from deeponet_acoustics.models.datastructures import Domain, Physics, SimulationData
+import deeponet_acoustics.setup.parsers as parsers
 
 def loadSimulationParametersJson(path_data):
     param_dict = parsers.parseSettings(path_data)

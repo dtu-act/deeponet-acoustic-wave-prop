@@ -7,7 +7,7 @@ The training, validation and testing data in 3D are generated with the Discontin
 The data in 2D are generated with a Matlab [implementation](https://github.com/dtu-act/numerical-pde-solvers/tree/main/SEMSolvers), and can be downloaded from the PNAS Supplementary Information.
 
 ## INSTALLATION
-Python 3.10+, Jax 0.4.10+ and Flax 0.6.10+ are used among other dependencies listed inside `scripts/install/install_packages.sh`:
+The results from the paper was done using Python 3.10+, Jax 0.4.10+ and Flax 0.6.10+:
 
 ```
 pip install --user --upgrade optax tensorboard tensorboard_plugin_profile pytorch_lightning  matplotlib smt pydot graphviz h5py tqdm meshio "jax[cuda12_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html flax orbax-checkpoint

@@ -6,7 +6,7 @@
 #
 # Licensed under the MIT License.
 # ==============================================================================
-import convertH5.assembly2D as convertH5
+import deeponet_acoustics.convertH5.assembly2D as convertH5
 
 data_dir = "/work3/nibor/1TB/deeponet/input_1D_2D/Lshape3x3_freq_indep_ppw_2_4_2_5srcpos_val"
 header_filepath_in = "/work3/nibor/1TB/deeponet/input_1D_2D/Lshape3x3_freq_indep_ppw_2_4_2_5srcpos_val/Lshape3x3_freq_indep_ppw_2_4_2_5srcpos_val_header.h5"

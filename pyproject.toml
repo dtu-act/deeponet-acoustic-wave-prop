@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deeponet_acoustics"
+version = "0.1.0"
+description = "DeepONet for acoustic wave propagation"
+authors = [
+    { name = "Nikolas Borrel-Jensen", email = "nikolasborrel@proton.me" },
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [  
+    "jax[cpu]",
+    "jaxlib",
+    "flax>=0.6.10",
+    "optax",
+    "orbax-checkpoint",
+    "tensorboard",
+    "tensorboard_plugin_profile",
+    "pytorch_lightning",
+    "matplotlib",
+    "smt",
+    "pydot",
+    "graphviz",
+    "h5py",
+    "tqdm",
+    "meshio",
+]
+
+[project.optional-dependencies]
+cuda12 = [
+    "jax==0.4.38",
+    "jaxlib==0.4.38+cuda12.cudnn88",
+]
+
+[project.scripts]
+deeponet-train3d = "deeponet_acoustics.scripts.main3D_train:main"
+deeponet-train1d2d = "deeponet_acoustics.scripts.main1D2D_train:main"

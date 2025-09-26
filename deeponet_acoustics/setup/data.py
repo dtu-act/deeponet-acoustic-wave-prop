@@ -10,9 +10,8 @@ import jax.numpy as np
 from jax import random, vmap
 import matplotlib.pyplot as plt
 import utils.utils as utils
-from setup.settings import TransferLearning
-import datahandlers.data_rw as rw
-import jax.numpy as jnp
+from deeponet_acoustics.setup.settings import TransferLearning
+import deeponet_acoustics.datahandlers.data_rw as rw
 
 def setupDataResample(p,t,grid,dx_u,xminmax,yminmax,do_plot=False):
     # Resample functions to match num of sensors    

@@ -8,7 +8,7 @@
 #
 # 3D: used for converting the full dome to quarter dome for domain decomposition
 # ==============================================================================
-import convertH5.convert2D_resolutions as convertH5
+import deeponet_acoustics.convertH5.convert2D_resolutions as convertH5
 import datahandlers.io as IO
 from pathlib import Path
 import shutil

@@ -12,7 +12,7 @@
 # ==============================================================================
 import h5py
 import numpy as np
-import datahandlers.io as IO
+import deeponet_acoustics.datahandlers.io as IO
 from pathlib import Path
 
 def assembleH5(data_dir, header_filepath_in, filepath_out):

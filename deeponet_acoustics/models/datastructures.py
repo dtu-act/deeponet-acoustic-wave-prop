@@ -15,7 +15,7 @@ from typing import Callable, Dict, List, TypeAlias
 import jax
 import numpy as np
 from flax import linen as nn           # The Linen API
-from utils.utils import expandCnnData
+from deeponet_acoustics.utils.utils import expandCnnData
 
 class NetworkArchitectureType(Enum):    
     MLP = 1

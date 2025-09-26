@@ -10,11 +10,11 @@ import os
 from matplotlib import pyplot as plt
 import numpy as np
 from matplotlib import cm
-import utils.dsp as dsp
-import utils.utils as utils
 import matplotlib.animation as anim
 from pathlib import Path
 from scipy.io.wavfile import write
+import deeponet_acoustics.utils.dsp as dsp
+import deeponet_acoustics.utils.utils as utils
 
 figsize_x, figsize_y = 8, 4
 

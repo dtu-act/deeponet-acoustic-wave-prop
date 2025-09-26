@@ -6,9 +6,9 @@
 #
 # Licensed under the MIT License.
 # ==============================================================================
-import datahandlers.data_rw as rw
-from setup.settings import SimulationSettings
-import setup.parsers as parsers
+import deeponet_acoustics.datahandlers.data_rw as rw
+from deeponet_acoustics.setup.settings import SimulationSettings
+import deeponet_acoustics.setup.parsers as parsers
 import meshio
 
 settings_path = "scripts/deeponet_2D_local.json"

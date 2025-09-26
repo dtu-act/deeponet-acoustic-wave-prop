@@ -9,19 +9,19 @@
 import os
 import numpy as np
 from pathlib import Path
-from models.datastructures import EvaluationSettings, NetworkArchitectureType, TransferLearning
 import utils.utils as utils
 
-from datahandlers.datagenerators import DataH5Compact, DataSourceOnly, DatasetStreamer, getNumberOfSources
-from models.deeponet import DeepONet
-from models.networks_flax import setupNetwork
-from utils.feat_expansion import fourierFeatureExpansion_f0
-import datahandlers.data_rw as rw
-import plotting.visualizing as plotting
-from setup.configurations import setupPlotParams
-from setup.settings import SimulationSettings
-import setup.parsers as parsers
-import datahandlers.io as IO
+from deeponet_acoustics.models.datastructures import EvaluationSettings, NetworkArchitectureType, TransferLearning
+from deeponet_acoustics.datahandlers.datagenerators import DataH5Compact, DataSourceOnly, DatasetStreamer, getNumberOfSources
+from deeponet_acoustics.models.deeponet import DeepONet
+from deeponet_acoustics.models.networks_flax import setupNetwork
+from deeponet_acoustics.utils.feat_expansion import fourierFeatureExpansion_f0
+import deeponet_acoustics.datahandlers.data_rw as rw
+import deeponet_acoustics.plotting.visualizing as plotting
+from deeponet_acoustics.setup.configurations import setupPlotParams
+from deeponet_acoustics.setup.settings import SimulationSettings
+import deeponet_acoustics.setup.parsers as parsers
+import deeponet_acoustics.datahandlers.io as IO
 
 def evaluate(settings_path, settings_eval_path):
     prune_spatial = 1

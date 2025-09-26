@@ -7,7 +7,7 @@
 # Licensed under the MIT License.
 # ==============================================================================
 from dataclasses import dataclass
-from models.datastructures import InputOutputDirs, NetworkArchitecture, NetworkArchitectureType, TrainingSettings, TransferLearning, ResNetArchitecture, MLPArchitecture
+from deeponet_acoustics.models.datastructures import InputOutputDirs, NetworkArchitecture, NetworkArchitectureType, TrainingSettings, TransferLearning, ResNetArchitecture, MLPArchitecture
 
 @dataclass
 class SimulationSettings:

@@ -9,12 +9,12 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import datahandlers.data_rw as rw
-from setup.settings import SimulationSettings
-import setup.parsers as parsers
-import datahandlers.io as IO
-from datahandlers.io import XdmfReader
 import h5py
+import deeponet_acoustics.datahandlers.data_rw as rw
+from deeponet_acoustics.setup.settings import SimulationSettings
+import deeponet_acoustics.setup.parsers as parsers
+import deeponet_acoustics.datahandlers.io as IO
+from deeponet_acoustics.datahandlers.io import XdmfReader
 
 id = "deeponet_3D_bn5_512_tn5_512_out100_bs64_coord500_cnn_2xch64_fnn80_80_ampl2"
 

@@ -9,14 +9,14 @@
 import os, shutil
 import numpy as np
 
-import datahandlers.data_rw as rw
-from models.datastructures import NetworkArchitectureType
-import setup.parsers as parsers
-from datahandlers.datagenerators import DataH5Compact, DatasetStreamer, NumpyLoader, printInfo
-from models.networks_flax import setupNetwork
-from models.deeponet import DeepONet
-from utils.feat_expansion import fourierFeatureExpansion_f0
-from setup.settings import SimulationSettings
+import deeponet_acoustics.datahandlers.data_rw as rw
+from deeponet_acoustics.models.datastructures import NetworkArchitectureType
+import deeponet_acoustics.setup.parsers as parsers
+from deeponet_acoustics.datahandlers.datagenerators import DataH5Compact, DatasetStreamer, NumpyLoader, printInfo
+from deeponet_acoustics.models.networks_flax import setupNetwork
+from deeponet_acoustics.models.deeponet import DeepONet
+from deeponet_acoustics.utils.feat_expansion import fourierFeatureExpansion_f0
+from deeponet_acoustics.setup.settings import SimulationSettings
 
 def train(settings_path):
     settings_dict = parsers.parseSettings(settings_path)
@@ -51,7 +51,7 @@ def train(settings_path):
         norm_data=settings.normalize_data, flatten_ic=flatten_ic)
     dataset_val = DatasetStreamer(metadata_val, training.batch_size_coord, y_feat_extractor=y_feat)
     
-    dataloader = NumpyLoader(dataset, batch_size=training.batch_size_branch, shuffle=True, drop_last=True)
+    dataloader = NumpyLoader(dataset, batch_size=training.batch_size_branch, shuffle=True, drop_last=len(dataset) > 1)
     dataloader_val = NumpyLoader(dataset_val, batch_size=training.batch_size_branch, shuffle=True, num_workers=0) # do not drop last, validation set has few samples
 
     if not np.allclose(metadata.tsteps, metadata_val.tsteps):
@@ -80,5 +80,5 @@ def train(settings_path):
     model.train(dataloader, dataloader_val, nIter, save_every=200)
     model.plotLosses(settings.dirs.figs_dir)
 
-settings_path = "scripts/threeD/setups/settings.json"
-train(settings_path)
+# settings_path = "scripts/threeD/setups/settings.json"
+# train(settings_path)

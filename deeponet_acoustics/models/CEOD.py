@@ -7,7 +7,7 @@
 # Licensed under the MIT License.
 # ==============================================================================
 import jax.numpy as jnp
-from jax import jit, vmap, lax
+from jax import jit
 from functools import partial
 
 @partial(jit, static_argnums=(2,))

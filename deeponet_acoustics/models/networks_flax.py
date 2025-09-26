@@ -15,13 +15,12 @@ from jax import random
 from jax import core
 from dataclasses import dataclass
 
-from models.datastructures import NetworkArchitecture, NetworkArchitectureType, NetworkContainer
+from deeponet_acoustics.models.datastructures import NetworkArchitecture, NetworkArchitectureType, NetworkContainer
 
 #https://github.com/google/flax/blob/main/examples/wmt/models.py
 #https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/JAX/tutorial2/Introduction_to_JAX.html
 #https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/guide4/Research_Projects_with_JAX.html
 
-KeyArray = random.KeyArray
 DTypeLikeInexact = Any  # DTypeLikeFloat | DTypeLikeComplex
 Array = Any
 
@@ -90,8 +89,8 @@ def flattened_traversal(fn, network_keys):
   return mask
 
 def sinusoidal_init(is_first=False):
-    def init(key: KeyArray,
-             shape: core.Shape,
+    def init(key: Array,
+             shape: Array,
              dtype: DTypeLikeInexact = dtype) -> Array:
 
         d_in = shape[0]

@@ -17,13 +17,14 @@ import flax
 from torch.utils.tensorboard import SummaryWriter
 import os
 import collections
-from models.datastructures import NetworkArchitectureType, NetworkContainer, TransferLearning
-from utils.timings import TimingsWriter
-from utils.utils import expandCnnData
 from flax.training import checkpoints
 import orbax.checkpoint
-from models.networks_flax import flattened_traversal, freezeLayersToKeys, freezeCnnLayersToKeys
-from models import loss_functions
+from deeponet_acoustics.models.datastructures import NetworkArchitectureType, NetworkContainer, TransferLearning
+from deeponet_acoustics.utils.timings import TimingsWriter
+from deeponet_acoustics.utils.utils import expandCnnData
+from deeponet_acoustics.models.networks_flax import flattened_traversal, freezeLayersToKeys, freezeCnnLayersToKeys
+from deeponet_acoustics.models import loss_functions
+
 
 from functools import partial
 from tqdm import trange
@@ -203,7 +204,7 @@ class DeepONet:
         writer = SummaryWriter(log_dir=self.log_dir)
         timer = TimingsWriter(log_dir=self.log_dir) if do_timings else None
 
-        num_batches = int(dataloader.dataset.N/dataloader.batch_size)
+        num_batches = np.ceil(dataloader.dataset.N/dataloader.batch_size)
         
         pbar_epochs = trange(np.ceil(nIter/num_batches).astype('int'))
         dataset = dataloader

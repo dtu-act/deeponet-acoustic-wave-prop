@@ -6,9 +6,7 @@
 #
 # Licensed under the MIT License.
 # ==============================================================================
-from pydoc import doc
 import numpy as np
-import matplotlib.pyplot as plt
 
 def generate_grf_function_mask_1d(xmin, xmax, sigma_0, l_0, num_of_elements_x, num_of_samples, sigma0_window=0.2):
     if len(sigma_0) != len(l_0):

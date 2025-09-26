@@ -17,9 +17,9 @@ from typing import Callable, Dict
 from pathlib import Path
 import itertools
 import time
-from datahandlers.io import XdmfReader
-from models.datastructures import SimulationDataType
-import datahandlers.io as IO
+from deeponet_acoustics.datahandlers.io import XdmfReader
+from deeponet_acoustics.models.datastructures import SimulationDataType
+import deeponet_acoustics.datahandlers.io as IO
 
 IC_NORM = True
 AMPLITUDE = 2 # HACK: pressure min/max hardcoded

@@ -8,7 +8,7 @@
 # ==============================================================================
 import jax.numpy as jnp
 from jax import vmap
-from models.CEOD import calcCEOD
+from deeponet_acoustics.models.CEOD import calcCEOD
 
 def lossCEOD(params: dict, batch_target: list[float], 
              branch_net: callable, operator_net: callable, ceod_indx: int = -1):

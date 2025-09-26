@@ -6,8 +6,8 @@
 #
 # Licensed under the MIT License.
 # ==============================================================================
-import convertH5.convert2D_resolutions as convertH5
-import datahandlers.io as IO
+import deeponet_acoustics.convertH5.convert2D_resolutions as convertH5
+import deeponet_acoustics.datahandlers.io as IO
 import pathlib
 import os
 import numpy as np

@@ -8,7 +8,7 @@
 #
 # Used for 2D data only: converting from high spatial/temporal resolutions to lower resolutions (data generated with MATLAB)
 # ==============================================================================
-import convertH5.convert2D_resolutions as convertH5
+import deeponet_acoustics.convertH5.convert2D_resolutions as convertH5
 import numpy as np
 
 uprune_factor = 1 # prune factor

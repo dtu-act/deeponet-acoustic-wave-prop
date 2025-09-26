@@ -6,13 +6,13 @@
 #
 # Licensed under the MIT License.
 # ==============================================================================
-import argparse
-from train3D import train
+import json
+import os
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--path_settings", type=str, required=True)
-args = parser.parse_args()
+def parseSettings(path_to_json):    
+    file_handle = open(path_to_json, "r")
+    data = file_handle.read()
+    json_obj = json.loads(data)
+    file_handle.close()
 
-if __name__ == "__main__":
-  settings_path = args.path_settings  
-  train(settings_path)
+    return json_obj

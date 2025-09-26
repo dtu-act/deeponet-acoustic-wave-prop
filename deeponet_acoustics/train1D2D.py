@@ -9,16 +9,16 @@
 import os, shutil
 import jax.numpy as jnp
 import numpy
-from models.datastructures import NetworkArchitectureType
+from deeponet_acoustics.models.datastructures import NetworkArchitectureType
 
-from models.networks_flax import setupNetwork
-from datahandlers.datagenerators import DataGenerator, normalizeDomain, normalizeFourierDataExpansionZero
-from setup.data import setupData, setupTransferLearningData
-from models.deeponet import DeepONet
-import utils.feat_expansion as featexp
-import datahandlers.data_rw as rw
-from setup.settings import SimulationSettings
-import setup.parsers as parsers
+from deeponet_acoustics.models.networks_flax import setupNetwork
+from deeponet_acoustics.datahandlers.datagenerators import DataGenerator, normalizeDomain, normalizeFourierDataExpansionZero
+from deeponet_acoustics.setup.data import setupData, setupTransferLearningData
+from deeponet_acoustics.models.deeponet import DeepONet
+import deeponet_acoustics.utils.feat_expansion as featexp
+import deeponet_acoustics.datahandlers.data_rw as rw
+from deeponet_acoustics.setup.settings import SimulationSettings
+import deeponet_acoustics.setup.parsers as parsers
 
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
 
