@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright 2024 Technical University of Denmark
+# Copyright 2025 Technical University of Denmark
 # Author: Nikolas Borrel-Jensen 
 #
 # All Rights Reserved.
@@ -19,21 +19,16 @@ import os
 import collections
 from flax.training import checkpoints
 import orbax.checkpoint
-from deeponet_acoustics.models.datastructures import NetworkArchitectureType, NetworkContainer, TransferLearning
+from deeponet_acoustics.models.datastructures import NetworkArchitectureType, NetworkContainer, TrainingSettings, TransferLearning
 from deeponet_acoustics.utils.timings import TimingsWriter
 from deeponet_acoustics.utils.utils import expandCnnData
 from deeponet_acoustics.models.networks_flax import flattened_traversal, freezeLayersToKeys, freezeCnnLayersToKeys
 from deeponet_acoustics.models import loss_functions
+from deeponet_acoustics.datahandlers.datagenerators import DataInterface
 
 
 from functools import partial
 from tqdm import trange
-
-# https://coderzcolumn.com/tutorials/artificial-intelligence/jax-guide-to-create-convolutional-neural-networks
-# https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/JAX/tutorial5/Inception_ResNet_DenseNet.html
-# https://datascience.stackexchange.com/questions/39140/clipping-the-reward-for-adam-optimizer-in-keras
-# https://neptune.ai/blog/understanding-gradient-clipping-and-how-it-can-fix-exploding-gradients-problem
-# https://github.com/google/flax/discussions/1453 discussing how to freeze parameters in flax
 
 LossLogger = collections.namedtuple('LossLogger', ['loss_train', 'loss_val', 'nIter'])
 
@@ -54,29 +49,45 @@ class DeepONet:
     branch_apply: Any
     trunk_apply: Any    
 
-    def __init__(self, lr: float, module_bn: NetworkContainer, module_tn: NetworkContainer, 
-                 log_dir, decay_steps, decay_rate, adaptive_weights_shape=[],
-                 transfer_learning: TransferLearning=None):
+    def __init__(self, settings: TrainingSettings, dataset: DataInterface, module_bn: NetworkContainer, module_tn: NetworkContainer, 
+                 log_dir, transfer_learning: TransferLearning=None):
+        
+        lr = settings.learning_rate
+        if settings.use_adaptive_weights:
+            adaptive_weights_shape = min(settings.batch_size_branch, dataset.N) * min(settings.batch_size_coord, dataset.P),
+        else:
+            adaptive_weights_shape = []
+
+        decay_steps = settings.decay_steps
+        decay_rate = settings.decay_rate
 
         self.loss_logger = LossLogger([],[],[])                    
         self.step_offset = 0
 
         self.log_dir = log_dir
-        self.is_bn_fnn = module_bn.network.network_type != NetworkArchitectureType.RESNET
+        self.is_bn_fnn = module_bn.network.network_type != NetworkArchitectureType.RESNET        
         dim_bn = module_bn.in_dim
-        dim_tn = module_tn.in_dim
+        dim_tn = module_tn.in_dim        
 
-        if transfer_learning == None:
-            branch_params = module_bn.network.init(random.PRNGKey(1234), 
-                                                   jnp.expand_dims(jnp.ones(dim_bn), axis=0) if self.is_bn_fnn else expandCnnData(np.ones(dim_bn)))
+        if transfer_learning is None:
+            
+
+            branch_params = module_bn.network.init(
+                random.PRNGKey(1234), 
+                jnp.expand_dims(jnp.ones(dim_bn), axis=0) if self.is_bn_fnn else expandCnnData(np.ones(dim_bn))
+            )
             
             trunk_params  = module_tn.network.init(random.PRNGKey(4321), 
                                             jnp.ones(dim_tn))
             if len(adaptive_weights_shape) > 0:
-                self.params = flax.core.frozen_dict.freeze({TAG_BN: branch_params, TAG_TN: trunk_params, TAG_B0: 0.0,
-                                                            TAG_ADAPTIVE: jnp.ones(adaptive_weights_shape)})
+                self.params = flax.core.frozen_dict.freeze(
+                    {TAG_BN: branch_params, TAG_TN: trunk_params, TAG_B0: 0.0,
+                     TAG_ADAPTIVE: jnp.ones(adaptive_weights_shape)}
+                )
             else:
-                self.params = flax.core.frozen_dict.freeze({TAG_BN: branch_params, TAG_TN: trunk_params, TAG_B0: 0.0})
+                self.params = flax.core.frozen_dict.freeze(
+                    {TAG_BN: branch_params, TAG_TN: trunk_params, TAG_B0: 0.0}
+                )
 
             freeze_layers = set()
         else:            
@@ -112,10 +123,9 @@ class DeepONet:
         self.branch_apply = module_bn.network.apply
         self.trunk_apply = module_tn.network.apply
 
-        self.opt_scheduler = exponential_decay(lr, 
-                                               decay_steps=decay_steps, 
-                                               decay_rate=decay_rate,
-                                               step_offset=self.step_offset)
+        self.opt_scheduler = exponential_decay(
+            lr, decay_steps=decay_steps, decay_rate=decay_rate, step_offset=self.step_offset
+            )
             
         def optimizerSelector(path, _):
             if path in freeze_layers:
@@ -140,7 +150,99 @@ class DeepONet:
                 label_fn)
             )
 
-        self.opt_state = self.optimizer.init(self.params)        
+        self.opt_state = self.optimizer.init(self.params)
+
+    def train(self, dataloader, dataloader_val, nIter, save_every=200, do_timings=False):
+        """Main train loop using dataloaders (3D data)."""
+        writer = SummaryWriter(log_dir=self.log_dir)
+        timer = TimingsWriter(log_dir=self.log_dir) if do_timings else None
+
+        num_batches = np.ceil(dataloader.dataset.N/dataloader.batch_size)
+        
+        pbar_epochs = trange(np.ceil(nIter/num_batches).astype('int'))
+
+        i = self.step_offset
+        if i == 0:
+            self.writeState(i, pbar_epochs, dataloader, dataloader_val, writer)
+        
+        timer.resetTimings() if do_timings else None
+        timer.startTiming('total_iter') if do_timings else None
+        timer.startTiming('dataloader') if do_timings else None
+        for _ in pbar_epochs:             
+            for _, data_batch in enumerate(dataloader):
+                jax.block_until_ready(data_batch) if do_timings else None
+                timer.endTiming('dataloader') if do_timings else None
+
+                i += 1
+                
+                if do_timings:
+                    timer.startTiming('backprop') if do_timings else None
+                    self.params, self.opt_state, _ = self.step(self.params, self.opt_state, data_batch)
+                    jax.block_until_ready(self.params) if do_timings else None
+                    jax.block_until_ready(self.opt_state) if do_timings else None
+                    timer.endTiming('backprop') if do_timings else None
+
+                    timer.writeTimings({'total_iter': 'Total time iter:', 
+                                        'dataloader': 'Dataloader:',
+                                        'backprop': 'Back-propagation:'})
+                    timer.resetTimings()
+                    timer.startTiming('total_iter') if do_timings else None
+                    timer.startTiming('dataloader') if do_timings else None
+                else:
+                    self.params, self.opt_state, _ = self.step(self.params, self.opt_state, data_batch)
+                
+                if i % save_every == 0:             
+                    self.writeState(i, pbar_epochs, dataloader, dataloader_val, writer)
+        
+        # save final result
+        if i % save_every != 0:
+            self.writeState(i, pbar_epochs, dataloader, dataloader_val, writer)
+    
+    def trainFromDataset(self, dataset, dataset_val, nIter, save_every=100, do_timings=False):
+        """Main train loop using dataset directly (currently for 1D/2D data)."""
+        writer = SummaryWriter(log_dir=self.log_dir)
+        timer = TimingsWriter(log_dir=self.log_dir) if do_timings else None
+
+        data = iter(dataset)
+        pbar = trange(nIter)
+
+        i = self.step_offset
+        if i == 0:
+            self.writeState(i, pbar, dataset, dataset_val, writer)
+        
+
+        timer.resetTimings() if do_timings else None
+        for _ in pbar:            
+            timer.startTiming('total_iter') if do_timings else None
+            i += 1
+
+            timer.startTiming('dataloader') if do_timings else None
+            data_batch = next(data)
+            jax.block_until_ready(data_batch) if do_timings else None
+            timer.endTiming('dataloader') if do_timings else None
+
+            if do_timings:
+                timer.startTiming('backprop')
+                self.params, self.opt_state, _ = self.step(self.params, self.opt_state, data_batch)
+                jax.block_until_ready(self.params)
+                jax.block_until_ready(self.opt_state)
+                timer.endTiming('backprop')
+                timer.endTiming('total_iter')
+
+                timer.writeTimings({'total_iter': 'Total time iter:', 
+                                    'dataloader': 'Dataloader:',
+                                    'backprop': 'Back-propagation:'})
+                timer.resetTimings()
+            else:
+                self.params, self.opt_state, _ = self.step(self.params, self.opt_state, data_batch)
+
+            if i % save_every == 0:
+                self.writeState(i, pbar, dataset, dataset_val, writer)
+
+        # save final result (if not already done)
+        if i % save_every != 0:
+            self.writeState(i, pbar, dataset, dataset_val, writer)
+
 
     def operator_net(self, params, B, y):
         trunk_params, b0 = params[TAG_TN], params[TAG_B0]
@@ -199,98 +301,6 @@ class DeepONet:
         params = flax.core.frozen_dict.freeze(params)
         
         return params, opt_state, loss_value
-
-    def train(self, dataloader, dataloader_val, nIter, save_every=200, do_timings=False):        
-        writer = SummaryWriter(log_dir=self.log_dir)
-        timer = TimingsWriter(log_dir=self.log_dir) if do_timings else None
-
-        num_batches = np.ceil(dataloader.dataset.N/dataloader.batch_size)
-        
-        pbar_epochs = trange(np.ceil(nIter/num_batches).astype('int'))
-        dataset = dataloader
-        dataset_val = dataloader_val
-
-        i = self.step_offset
-        if i == 0:
-            self.writeState(i, pbar_epochs, dataset, dataset_val, writer)
-        
-        timer.resetTimings() if do_timings else None
-        timer.startTiming('total_iter') if do_timings else None
-        timer.startTiming('dataloader') if do_timings else None
-        for _ in pbar_epochs:             
-            for _, data_batch in enumerate(dataset):
-                jax.block_until_ready(data_batch) if do_timings else None
-                timer.endTiming('dataloader') if do_timings else None
-
-                i += 1
-                
-                if do_timings:
-                    timer.startTiming('backprop') if do_timings else None
-                    self.params, self.opt_state, _ = self.step(self.params, self.opt_state, data_batch)
-                    jax.block_until_ready(self.params) if do_timings else None
-                    jax.block_until_ready(self.opt_state) if do_timings else None
-                    timer.endTiming('backprop') if do_timings else None
-
-                    timer.writeTimings({'total_iter': 'Total time iter:', 
-                                        'dataloader': 'Dataloader:',
-                                        'backprop': 'Back-propagation:'})
-                    timer.resetTimings()
-                    timer.startTiming('total_iter') if do_timings else None
-                    timer.startTiming('dataloader') if do_timings else None
-                else:
-                    self.params, self.opt_state, _ = self.step(self.params, self.opt_state, data_batch)
-                
-                if i % save_every == 0:             
-                    self.writeState(i, pbar_epochs, dataset, dataset_val, writer)
-        
-        # save final result
-        if i % save_every != 0:
-            self.writeState(i, pbar_epochs, dataset, dataset_val, writer)
-
-    # main train loop
-    def trainFromMemory(self, dataset, dataset_val, nIter, save_every=100, do_timings=False):
-        writer = SummaryWriter(log_dir=self.log_dir)
-        timer = TimingsWriter(log_dir=self.log_dir) if do_timings else None
-
-        data = iter(dataset)
-        pbar = trange(nIter)
-
-        i = self.step_offset
-        if i == 0:
-            self.writeState(i, pbar, dataset, dataset_val, writer)
-        
-
-        timer.resetTimings() if do_timings else None
-        for _ in pbar:            
-            timer.startTiming('total_iter') if do_timings else None
-            i += 1
-
-            timer.startTiming('dataloader') if do_timings else None
-            data_batch = next(data)
-            jax.block_until_ready(data_batch) if do_timings else None
-            timer.endTiming('dataloader') if do_timings else None
-
-            if do_timings:
-                timer.startTiming('backprop')
-                self.params, self.opt_state, _ = self.step(self.params, self.opt_state, data_batch)
-                jax.block_until_ready(self.params)
-                jax.block_until_ready(self.opt_state)
-                timer.endTiming('backprop')
-                timer.endTiming('total_iter')
-
-                timer.writeTimings({'total_iter': 'Total time iter:', 
-                                    'dataloader': 'Dataloader:',
-                                    'backprop': 'Back-propagation:'})
-                timer.resetTimings()
-            else:
-                self.params, self.opt_state, _ = self.step(self.params, self.opt_state, data_batch)
-
-            if i % save_every == 0:
-                self.writeState(i, pbar, dataset, dataset_val, writer)
-
-        # save final result (if not already done)
-        if i % save_every != 0:
-            self.writeState(i, pbar, dataset, dataset_val, writer)
 
     def plotLosses(self, figs_dir=None):
         plt.figure(figsize = (6,5))

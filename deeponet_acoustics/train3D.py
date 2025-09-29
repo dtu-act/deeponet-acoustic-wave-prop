@@ -1,30 +1,33 @@
 # ==============================================================================
-# Copyright 2023 Technical University of Denmark
+# Copyright 2025 Technical University of Denmark
 # Author: Nikolas Borrel-Jensen 
 #
 # All Rights Reserved.
 #
 # Licensed under the MIT License.
 # ==============================================================================
-import os, shutil
+import json
+import os
+from typing import Any
 import numpy as np
+from torch.utils.data import DataLoader
 
 import deeponet_acoustics.datahandlers.data_rw as rw
 from deeponet_acoustics.models.datastructures import NetworkArchitectureType
-import deeponet_acoustics.setup.parsers as parsers
-from deeponet_acoustics.datahandlers.datagenerators import DataH5Compact, DatasetStreamer, NumpyLoader, printInfo
+from deeponet_acoustics.datahandlers.datagenerators import DataH5Compact, DatasetStreamer, numpy_collate, printInfo
 from deeponet_acoustics.models.networks_flax import setupNetwork
 from deeponet_acoustics.models.deeponet import DeepONet
 from deeponet_acoustics.utils.feat_expansion import fourierFeatureExpansion_f0
 from deeponet_acoustics.setup.settings import SimulationSettings
 
-def train(settings_path):
-    settings_dict = parsers.parseSettings(settings_path)
+def train(settings_dict: dict[str, Any]):
     settings = SimulationSettings(settings_dict)
     if settings.transfer_learning == None or not settings.transfer_learning.resume_learning:
         settings.dirs.createDirs(delete_existing=True)
     
-    shutil.copyfile(settings_path, os.path.join(settings.dirs.id_dir, 'settings.json')) # copy settings
+    # copy settings
+    with open(os.path.join(settings.dirs.id_dir, 'settings.json'), "w") as json_file:
+        json_file.write(json.dumps(settings_dict, indent=4))
 
     training = settings.training_settings
     branch_net = settings.branch_net
@@ -51,8 +54,10 @@ def train(settings_path):
         norm_data=settings.normalize_data, flatten_ic=flatten_ic)
     dataset_val = DatasetStreamer(metadata_val, training.batch_size_coord, y_feat_extractor=y_feat)
     
-    dataloader = NumpyLoader(dataset, batch_size=training.batch_size_branch, shuffle=True, drop_last=len(dataset) > 1)
-    dataloader_val = NumpyLoader(dataset_val, batch_size=training.batch_size_branch, shuffle=True, num_workers=0) # do not drop last, validation set has few samples
+    dataloader = DataLoader(dataset, batch_size=training.batch_size_branch, shuffle=True, collate_fn=numpy_collate, drop_last=len(dataset) > 1)
+    # do not drop last, validation set has few samples
+    dataloader_val = DataLoader(dataset_val, batch_size=training.batch_size_branch, 
+                                shuffle=True, collate_fn=numpy_collate, drop_last=False)
 
     if not np.allclose(metadata.tsteps, metadata_val.tsteps):
         raise Exception(f"Time steps differs between training and validation data: \nN_train={len(metadata.tsteps)}, N_val={len(metadata_val.tsteps)}, dt_train={metadata.tsteps[1]-metadata.tsteps[0]} and dt_val={metadata_val.tsteps[1]-metadata_val.tsteps[0]}.\n The network is not supposed to learn temporal interpolation. Exiting.")
@@ -64,17 +69,10 @@ def train(settings_path):
     tn_fnn = setupNetwork(trunk_net, in_tn, 'tn')
     in_bn = metadata.u_shape
     bn_fnn = setupNetwork(branch_net, in_bn, 'bn')
-
-    lr = settings.training_settings.learning_rate    
-    bs = settings.training_settings.batch_size_branch * settings.training_settings.batch_size_coord,
-    adaptive_weights_shape = bs if settings.training_settings.use_adaptive_weights else []
     
-    model = DeepONet(lr, bn_fnn, tn_fnn, 
+    model = DeepONet(settings.training_settings, metadata, bn_fnn, tn_fnn, 
                      settings.dirs.models_dir,
-                     decay_steps=settings.training_settings.decay_steps,
-                     decay_rate=settings.training_settings.decay_rate,
-                     transfer_learning=settings.transfer_learning,
-                     adaptive_weights_shape=adaptive_weights_shape)
+                     transfer_learning=settings.transfer_learning)
 
     ### Train ###
     model.train(dataloader, dataloader_val, nIter, save_every=200)

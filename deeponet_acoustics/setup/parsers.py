@@ -7,7 +7,6 @@
 # Licensed under the MIT License.
 # ==============================================================================
 import json
-import os
 
 def parseSettings(path_to_json):    
     file_handle = open(path_to_json, "r")
