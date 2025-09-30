@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright 2024 Technical University of Denmark
+# Copyright 2025 Technical University of Denmark
 # Author: Nikolas Borrel-Jensen 
 #
 # All Rights Reserved.
@@ -14,6 +14,7 @@ from deeponet_acoustics.models.datastructures import NetworkArchitectureType
 from deeponet_acoustics.models.networks_flax import setupNetwork
 from deeponet_acoustics.datahandlers.datagenerators import DataGenerator, normalizeDomain, normalizeFourierDataExpansionZero
 from deeponet_acoustics.setup.data import setupData, setupTransferLearningData
+from deeponet_acoustics.plotting.info_printing import networkInfo
 from deeponet_acoustics.models.deeponet import DeepONet
 import deeponet_acoustics.utils.feat_expansion as featexp
 import deeponet_acoustics.datahandlers.data_rw as rw
@@ -63,15 +64,15 @@ def train(settings_path):
         y_train = normalizeDomain(y_train, domain_min, domain_max, from_zero=from_zero)
         y_val = normalizeDomain(y_val, domain_min, domain_max, from_zero=from_zero)
 
-    y_feat = featexp.fourierFeatureExpansion_f0(settings.f0_feat)
+    y_feat_fn = featexp.fourierFeatureExpansion_f0(settings.f0_feat)
     # from datahandlers.datagenerators import normalizeData
-    # y_feat = featexp.fourierFeatureExpansion_gaussian((10,3), mean=fmax/2, std_dev=fmax/2)
+    # y_feat_fn = featexp.fourierFeatureExpansion_gaussian((10,3), mean=fmax/2, std_dev=fmax/2)
     # domain_minmax_norm = normalizeData(domain_minmax, domain_min, domain_max, from_zero=from_zero)
     # L_dom = domain_minmax_norm[:,1] - domain_minmax_norm[:,0]
-    # y_feat = featexp.fourierFeatureExpansion_exact_sol([fmax, fmax/2, fmax/4], c, L_dom[0], L_dom[1]) # only defined in 2D
+    # y_feat_fn = featexp.fourierFeatureExpansion_exact_sol([fmax, fmax/2, fmax/4], c, L_dom[0], L_dom[1]) # only defined in 2D
 
-    y_train = y_feat(y_train)
-    y_val = y_feat(y_val)
+    y_train = y_feat_fn(y_train)
+    y_val = y_feat_fn(y_val)
 
     if settings.normalize_data and from_zero:
         # only used for relu activation function normalizing cos/sin domain from [-1,1] to [0,1]
@@ -79,20 +80,12 @@ def train(settings_path):
         y_val = normalizeFourierDataExpansionZero(y_val, data_nonfeat_dim=data_nonfeat_dim)
 
     # setup network
-    branch_nn = setupNetwork(branch_net, u_train.shape[1::], 'bn')
+    in_bn = u_train.shape[1::]
+    branch_nn = setupNetwork(branch_net, in_bn, 'bn')
+    networkInfo(branch_nn, in_tn)
     in_tn = y_train.shape[1]
     trunk_nn = setupNetwork(trunk_net, in_tn, 'tn')    
-
-    lr = settings.training_settings.learning_rate    
-    bs = settings.training_settings.batch_size_branch * settings.training_settings.batch_size_coord,
-    adaptive_weights_shape = bs if settings.training_settings.use_adaptive_weights else []
-                     
-    model = DeepONet(lr, branch_nn, trunk_nn, 
-                     settings.dirs.models_dir,
-                     decay_steps=settings.training_settings.decay_steps,
-                     decay_rate=settings.training_settings.decay_rate,
-                     transfer_learning=settings.transfer_learning,
-                     adaptive_weights_shape=adaptive_weights_shape)
+    networkInfo(trunk_nn, in_tn)
 
     if settings.transfer_learning == None:
         dataset = DataGenerator(u_train, y_train, s_train, training.batch_size_branch, training.batch_size_coord)
@@ -102,8 +95,14 @@ def train(settings_path):
         dataset = DataGenerator(u_train, y_train, s_train, training.batch_size_branch, training.batch_size_coord, u_src_train)
         dataset_val = DataGenerator(u_val, y_val, s_val, training.batch_size_branch, training.batch_size_coord, u_src_val)
     
+    model = DeepONet(
+        settings.training_settings, dataset,
+        (branch_nn, in_bn), (trunk_nn, in_tn), 
+        settings.dirs.models_dir,
+        transfer_learning=settings.transfer_learning)
+    
     ### Train ###
-    model.trainFromMemory(dataset, dataset_val, nIter=nIter, save_every=100)
+    model.trainFromDataset(dataset, dataset_val, nIter=nIter, save_every=100)
     model.plotLosses(settings.dirs.figs_dir)
 
 # settings_path = "scripts/twoD/settings.json"

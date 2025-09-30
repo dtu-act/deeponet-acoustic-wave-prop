@@ -89,12 +89,6 @@ class DataInterface(ABC):
         """Time steps."""
         pass
 
-    @property
-    @abstractmethod
-    def num_tsteps(self) -> int:
-        """Number of time steps."""
-        pass
-
 def normalizeFourierDataExpansionZero(data, data_nonfeat_dim, ymin=-1, ymax=1):
     # used for normalizing cos/sin domain from [-1,1] to [0,1] (for relu activation function)    
     data_nonfeat = data[:, 0:data_nonfeat_dim]
@@ -221,7 +215,6 @@ class DataXdmf(DataInterface):
             self._tsteps = self.normalizeTemporal(self._tsteps)
 
         self._tt = np.repeat(self._tsteps, self._mesh.shape[0])
-        self._num_tsteps = len(self._tsteps)
 
         self._datasets = []
         for i in range(0, min(MAXNUM_DATASETS, len(filenames_xdmf))):
@@ -261,9 +254,6 @@ class DataXdmf(DataInterface):
 
     @property
     def N(self): return self._N
-
-    @property
-    def num_tsteps(self): return self._num_tsteps
 
     @property
     def Pmesh(self):
@@ -330,7 +320,6 @@ class DataH5Compact(DataInterface):
                 self._tsteps = self.normalizeTemporal(self._tsteps)
                     
         self._tt = np.repeat(self._tsteps, self._mesh.shape[0])
-        self._num_tsteps = len(self._tsteps)
         self._N = len(filenamesH5)
 
         self._datasets = []
@@ -368,9 +357,6 @@ class DataH5Compact(DataInterface):
 
     @property
     def N(self): return self._N
-
-    @property
-    def num_tsteps(self): return self._num_tsteps
 
     @property
     def Pmesh(self):
@@ -498,7 +484,6 @@ class DataSourceOnly(DataInterface):
                 )
 
         self._tt = np.repeat(self._tsteps, self._mesh.shape[0])
-        self._num_tsteps = len(self._tsteps)
 
     @property
     def datasets(self) -> list[h5py.File]:
@@ -559,10 +544,6 @@ class DataSourceOnly(DataInterface):
         return self._conn
 
     @property
-    def num_tsteps(self) -> int:
-        return self._num_tsteps
-
-    @property
     def xxyyzztt(self) -> np.ndarray[float]:
         """Spatio-temporal coordinates stacked as [x, y, z, t]."""
         xxyyzz = np.tile(self.mesh, (len(self.tsteps), 1))
@@ -617,13 +598,13 @@ class DatasetStreamer(Dataset):
         """Total number of time/space points."""
         return self.Pmesh * self.data.tsteps.shape[0]
 
-    def __init__(self, data, batch_size_coord=-1, y_feat_extractor=None, p_minmax=(-2.0, 2.0)):
+    def __init__(self, data, batch_size_coord=-1, y_feat_extract_fn=None, p_minmax=(-2.0, 2.0)):
         # batch_size_coord: set to -1 if full dataset should be used (e.g. for validation data)
         self.data = data
         self.p_minmax = p_minmax
         
         self.batch_size_coord = batch_size_coord if batch_size_coord <= self.P else self.P
-        self.__y_feat_extract_fn = (lambda y: y) if y_feat_extractor == None else y_feat_extractor
+        self.__y_feat_extract_fn = (lambda y: y) if y_feat_extract_fn is None else y_feat_extract_fn
 
         self.dim_input = self.__y_feat_extract_fn(jnp.array([[0,0,0,0]])).shape[1]
         self.itercount = itertools.count()
@@ -651,11 +632,12 @@ class DatasetStreamer(Dataset):
         
         # collect all field data for all timesteps - might be memory consuming
         # If memory load gets too heavy, consider selecting points at each timestep
+        num_tsteps = len(self.data.tsteps)
         if self.data.simulationDataType == SimulationDataType.H5COMPACT:
-            s = dataset[self.data.tags_field[0]][0:self.data.num_tsteps,::self.data.data_prune].flatten()[indxs_coord]
+            s = dataset[self.data.tags_field[0]][0:num_tsteps,::self.data.data_prune].flatten()[indxs_coord]
         elif self.data.simulationDataType == SimulationDataType.XDMF:
             s = np.empty((self.P), dtype=jnp.float32)
-            for j in range(self.data.num_tsteps):
+            for j in range(num_tsteps):
                 s[j*self.data.Pmesh:(j+1)*self.Pmesh] = dataset[self.data.tags_field[j]][::self.data.data_prune]
             s = s[indxs_coord]
         elif self.data.simulationDataType == SimulationDataType.SOURCE_ONLY:
@@ -680,21 +662,3 @@ def numpy_collate(batch):
     return [numpy_collate(samples) for samples in transposed]
   else:
     return np.array(batch)
-    
-def printInfo(dataset: DataInterface, dataset_val: DataInterface, batch_size_coord: int, batch_size: int):
-    batch_size_train = min(batch_size, dataset.N)
-    batch_size_val = min(batch_size, dataset_val.N)
-
-    print(f"Mesh shape: {dataset.mesh.shape}")
-    print(f"Time steps: {len(dataset.tsteps)}")
-    print(f"IC shape: {dataset.u_shape}")
-
-    print(f"Train data size: {dataset.P}")
-    if batch_size > dataset.N:
-        print("NOTE: batch_size_branch > dataset.N")
-    print(f"Train batch size (total): {batch_size_coord*batch_size_train}")
-    print(f"Train num datasets: {dataset.N}")
-
-    print(f"Val data size: {dataset_val.P}")
-    print(f"Val batch size (total): {batch_size_coord*batch_size_val}")
-    print(f"Val num datasets: {dataset_val.N}")

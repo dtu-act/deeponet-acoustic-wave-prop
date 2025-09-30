@@ -107,16 +107,11 @@ For transfer learning, one might to freeze certain layers done as follows:
 The indexes for the branch net `bn` and `tn` is indicating the layers to freeze and the boolean for `bn_transformer` and `tn_transformer` determines if the encoder/transformer layers for the modified MLP network should be frozen or not.
 
 ## RUN EVALUATION
-For evaluating a trained model, the following Python scripts can be used (see also section "RE-CREATING RESULTS FROM THE PAPER"):
+For inference and evaluation on a trained model, the following Python scripts can be used (see also section "RE-CREATING RESULTS FROM THE PAPER"):
 
-    .
-       ├── main1D2D_eval.py       
-       ├── eval3D.py
-       ├── main3D_eval.py
-       ├── main3D_eval_speed.py
-       ├── scripts
-       │   ├── evaluate
-       │   │   ├── evaluate_speed3D.sh
+    .scripts
+       ├── main1D2D_inference.py
+       ├── main3D_inference.py
 
 A `JSON` script is used to specify how to evaluate the model and an example is given below:
 

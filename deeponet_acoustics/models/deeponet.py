@@ -8,6 +8,7 @@
 # ==============================================================================
 from typing import Any
 from matplotlib import pyplot as plt
+from jax.typing import ArrayLike
 import jax.numpy as jnp
 import numpy as np
 import jax
@@ -18,13 +19,15 @@ from torch.utils.tensorboard import SummaryWriter
 import os
 import collections
 from flax.training import checkpoints
+from flax import linen as nn
 import orbax.checkpoint
-from deeponet_acoustics.models.datastructures import NetworkArchitectureType, NetworkContainer, TrainingSettings, TransferLearning
+from deeponet_acoustics.models.datastructures import NetworkArchitectureType, TrainingSettings, TransferLearning
 from deeponet_acoustics.utils.timings import TimingsWriter
 from deeponet_acoustics.utils.utils import expandCnnData
 from deeponet_acoustics.models.networks_flax import flattened_traversal, freezeLayersToKeys, freezeCnnLayersToKeys
 from deeponet_acoustics.models import loss_functions
 from deeponet_acoustics.datahandlers.datagenerators import DataInterface
+
 
 
 from functools import partial
@@ -49,9 +52,11 @@ class DeepONet:
     branch_apply: Any
     trunk_apply: Any    
 
-    def __init__(self, settings: TrainingSettings, dataset: DataInterface, module_bn: NetworkContainer, module_tn: NetworkContainer, 
-                 log_dir, transfer_learning: TransferLearning=None):
-        
+    def __init__(
+            self, settings: TrainingSettings, dataset: DataInterface,
+            module_bn: tuple[nn.Module, ArrayLike], module_tn: tuple[nn.Module, ArrayLike],
+            log_dir, transfer_learning: TransferLearning | None = None,
+    ) -> None:
         lr = settings.learning_rate
         if settings.use_adaptive_weights:
             adaptive_weights_shape = min(settings.batch_size_branch, dataset.N) * min(settings.batch_size_coord, dataset.P),
@@ -65,19 +70,17 @@ class DeepONet:
         self.step_offset = 0
 
         self.log_dir = log_dir
-        self.is_bn_fnn = module_bn.network.network_type != NetworkArchitectureType.RESNET        
-        dim_bn = module_bn.in_dim
-        dim_tn = module_tn.in_dim        
+        self.is_bn_fnn = module_bn[0].network_type != NetworkArchitectureType.RESNET        
+        dim_bn = module_bn[1]
+        dim_tn = module_tn[1]
 
         if transfer_learning is None:
-            
-
-            branch_params = module_bn.network.init(
+            branch_params = module_bn[0].init(
                 random.PRNGKey(1234), 
                 jnp.expand_dims(jnp.ones(dim_bn), axis=0) if self.is_bn_fnn else expandCnnData(np.ones(dim_bn))
             )
             
-            trunk_params  = module_tn.network.init(random.PRNGKey(4321), 
+            trunk_params  = module_tn[0].init(random.PRNGKey(4321), 
                                             jnp.ones(dim_tn))
             if len(adaptive_weights_shape) > 0:
                 self.params = flax.core.frozen_dict.freeze(
@@ -120,8 +123,8 @@ class DeepONet:
         #print(freeze_layers)
         #print(jax.tree_map(jnp.shape, self.params))
 
-        self.branch_apply = module_bn.network.apply
-        self.trunk_apply = module_tn.network.apply
+        self.branch_apply = module_bn[0].apply
+        self.trunk_apply = module_tn[0].apply
 
         self.opt_scheduler = exponential_decay(
             lr, decay_steps=decay_steps, decay_rate=decay_rate, step_offset=self.step_offset

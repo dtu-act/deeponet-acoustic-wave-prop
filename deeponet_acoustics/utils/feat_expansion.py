@@ -6,6 +6,7 @@
 #
 # Licensed under the MIT License.
 # ==============================================================================
+from typing import Callable
 import numpy as np
 from numpy.random import default_rng
 
@@ -35,7 +36,7 @@ def fourierFeatureExpansion_gaussian(shape: tuple, mean: float, std_dev: float):
         np.sin(2*np.pi*B @ y.T).T,
         ])
 
-def fourierFeatureExpansion_f0(fs : list):
+def fourierFeatureExpansion_f0(fs: list) -> Callable:
     fs = np.asarray(fs)
     
     if len(fs) == 0:

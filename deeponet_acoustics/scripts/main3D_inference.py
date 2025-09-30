@@ -7,14 +7,16 @@
 # Licensed under the MIT License.
 # ==============================================================================
 import argparse
-from eval3D_accuracy import evaluate
+from eval3D import evaluate
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--path_settings", type=str, required=True)
-parser.add_argument("--path_eval_settings", type=str, required=True)
-args = parser.parse_args()
-
-if __name__ == "__main__":
+def main():
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--path_settings", type=str, required=True)
+  parser.add_argument("--path_eval_settings", type=str, required=True)
+  args = parser.parse_args()
   settings_path = args.path_settings  
   eval_settings_path = args.path_eval_settings  
   evaluate(settings_path, eval_settings_path)
+
+if __name__ == "__main__":
+  main()

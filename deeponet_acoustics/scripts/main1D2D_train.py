@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright 2023 Technical University of Denmark
+# Copyright 2025 Technical University of Denmark
 # Author: Nikolas Borrel-Jensen 
 #
 # All Rights Reserved.
@@ -9,10 +9,12 @@
 import argparse
 from train1D2D import train
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--path_settings", type=str, required=True)
-args = parser.parse_args()
-
-if __name__ == "__main__":
+def main() -> None:
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--path_settings", type=str, required=True)
+  args = parser.parse_args()
   settings_path = args.path_settings  
   train(settings_path)
+
+if __name__ == "__main__":
+  main()

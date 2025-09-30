@@ -14,7 +14,8 @@ from torch.utils.data import DataLoader
 
 import deeponet_acoustics.datahandlers.data_rw as rw
 from deeponet_acoustics.models.datastructures import NetworkArchitectureType
-from deeponet_acoustics.datahandlers.datagenerators import DataH5Compact, DatasetStreamer, numpy_collate, printInfo
+from deeponet_acoustics.datahandlers.datagenerators import DataH5Compact, DatasetStreamer, numpy_collate
+from deeponet_acoustics.plotting.info_printing import datasetInfo, networkInfo
 from deeponet_acoustics.models.networks_flax import setupNetwork
 from deeponet_acoustics.models.deeponet import DeepONet
 from deeponet_acoustics.utils.feat_expansion import fourierFeatureExpansion_f0
@@ -22,7 +23,7 @@ from deeponet_acoustics.setup.settings import SimulationSettings
 
 def train(settings_dict: dict[str, Any]):
     settings = SimulationSettings(settings_dict)
-    if settings.transfer_learning == None or not settings.transfer_learning.resume_learning:
+    if settings.transfer_learning is None or not settings.transfer_learning.resume_learning:
         settings.dirs.createDirs(delete_existing=True)
     
     # copy settings
@@ -42,17 +43,17 @@ def train(settings_dict: dict[str, Any]):
     c_phys = phys_params.c_phys
     
     f = settings.f0_feat
-    y_feat = fourierFeatureExpansion_f0(f)
+    y_feat_fn = fourierFeatureExpansion_f0(f)
 
     flatten_ic = branch_net.architecture != NetworkArchitectureType.RESNET
 
     # setup dataloaders
     metadata = DataH5Compact(settings.dirs.training_data_path, tmax=tmax, t_norm=c_phys, 
         norm_data=settings.normalize_data, flatten_ic=flatten_ic)
-    dataset = DatasetStreamer(metadata, training.batch_size_coord, y_feat_extractor=y_feat)
+    dataset = DatasetStreamer(metadata, training.batch_size_coord, y_feat_extract_fn=y_feat_fn)
     metadata_val = DataH5Compact(settings.dirs.testing_data_path, tmax=tmax, t_norm=c_phys, 
         norm_data=settings.normalize_data, flatten_ic=flatten_ic)
-    dataset_val = DatasetStreamer(metadata_val, training.batch_size_coord, y_feat_extractor=y_feat)
+    dataset_val = DatasetStreamer(metadata_val, training.batch_size_coord, y_feat_extract_fn=y_feat_fn)
     
     dataloader = DataLoader(dataset, batch_size=training.batch_size_branch, shuffle=True, collate_fn=numpy_collate, drop_last=len(dataset) > 1)
     # do not drop last, validation set has few samples
@@ -62,15 +63,18 @@ def train(settings_dict: dict[str, Any]):
     if not np.allclose(metadata.tsteps, metadata_val.tsteps):
         raise Exception(f"Time steps differs between training and validation data: \nN_train={len(metadata.tsteps)}, N_val={len(metadata_val.tsteps)}, dt_train={metadata.tsteps[1]-metadata.tsteps[0]} and dt_val={metadata_val.tsteps[1]-metadata_val.tsteps[0]}.\n The network is not supposed to learn temporal interpolation. Exiting.")
     
-    printInfo(metadata, metadata_val, training.batch_size_coord, training.batch_size_branch)
+    datasetInfo(metadata, metadata_val, training.batch_size_coord, training.batch_size_branch)
 
     # setup network
-    in_tn = y_feat(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
+    in_tn = y_feat_fn(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
     tn_fnn = setupNetwork(trunk_net, in_tn, 'tn')
+    networkInfo(tn_fnn, in_tn)
     in_bn = metadata.u_shape
     bn_fnn = setupNetwork(branch_net, in_bn, 'bn')
+    networkInfo(bn_fnn, in_bn)
     
-    model = DeepONet(settings.training_settings, metadata, bn_fnn, tn_fnn, 
+    model = DeepONet(settings.training_settings, metadata,
+                     (bn_fnn, in_bn), (tn_fnn, in_tn),
                      settings.dirs.models_dir,
                      transfer_learning=settings.transfer_learning)
 

@@ -19,6 +19,7 @@ from utils.feat_expansion import fourierFeatureExpansion_f0
 import datahandlers.data_rw as rw
 from setup.settings import SimulationSettings
 import setup.parsers as parsers
+from deeponet_acoustics.plotting.info_printing import networkInfo
 
 #id = "bilbao_4ppw_bs96_1500"
 id = "dome_6ppw_1stquad_resnet"
@@ -52,36 +53,34 @@ c_phys = phys_params.c_phys
 
 ### Initialize model ###
 f = settings.f0_feat
-y_feat = fourierFeatureExpansion_f0(f)
+y_feat_fn = fourierFeatureExpansion_f0(f)
 
 prune_spatial = 2
 metadata = DataH5Compact(settings.dirs.testing_data_path, tmax=tmax, t_norm=c_phys, 
     flatten_ic=do_fnn, data_prune=prune_spatial, norm_data=settings.normalize_data)
-dataset = DatasetStreamer(metadata, y_feat_extractor=y_feat)
+dataset = DatasetStreamer(metadata, y_feat_extract_fn=y_feat_fn)
 
 # setup network
 in_bn = metadata.u_shape[0]
-in_tn = y_feat(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
+in_tn = y_feat_fn(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
 branch_layers = branch_net.num_hidden_layers*[branch_net.num_hidden_neurons] + [branch_net.num_output_neurons]
 trunk_layers  = trunk_net.num_hidden_layers*[trunk_net.num_hidden_neurons]  + [trunk_net.num_output_neurons]
 
 # setup network
-in_tn = y_feat(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
+in_tn = y_feat_fn(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
 tn_fnn = setupNetwork(trunk_net, in_tn, 'tn')
-bn_fnn = setupNetwork(branch_net, metadata.u_shape, 'bn')
+networkInfo(tn_fnn, in_tn)
+in_bn = metadata.u_shape
+bn_fnn = setupNetwork(branch_net, in_bn, 'bn')
+networkInfo(bn_fnn, in_bn)
 
-lr = settings.training_settings.learning_rate    
-bs = settings.training_settings.batch_size_branch * settings.training_settings.batch_size_coord,
-adaptive_weights_shape = bs if settings.training_settings.use_adaptive_weights else []
 transfer_learning = TransferLearning({'transfer_learning': {'resume_learning': True}}, 
                                      settings.dirs.models_dir)
 
-model = DeepONet(lr, bn_fnn, tn_fnn, 
-                 settings.dirs.models_dir,
-                 decay_steps=settings.training_settings.decay_steps,
-                 decay_rate=settings.training_settings.decay_rate,
-                 transfer_learning=transfer_learning,
-                 adaptive_weights_shape=adaptive_weights_shape)
+model = DeepONet(settings.training_settings, metadata,
+                    (bn_fnn, in_bn), (tn_fnn, in_tn),
+                    settings.dirs.models_dir,
+                    transfer_learning=transfer_learning)
 
 path_receivers = os.path.join(settings.dirs.figs_dir , "receivers")
 Path(path_receivers).mkdir(parents=True, exist_ok=True)
@@ -95,7 +94,7 @@ tsteps_eval = np.linspace(0,tmax_eval/phys_params.c, int(tmax_eval/(1/(phys_para
 (u,*_),*_ = dataset[0]
 y_rcvs = np.repeat(np.array(receivers), len(tsteps_eval), axis=0)
 t_all = np.tile( tsteps_eval,  receivers.shape[0] )
-y_rcvs_feat = (y_feat(np.hstack((y_rcvs, t_all.reshape(-1,1)))))
+y_rcvs_feat = (y_feat_fn(np.hstack((y_rcvs, t_all.reshape(-1,1)))))
 
 _ = model.predict_s(model.params, u, y_rcvs_feat) # warmup - compiling
 _ = model.predict_s(model.params, u, y_rcvs_feat) # warmup - just to make sure...

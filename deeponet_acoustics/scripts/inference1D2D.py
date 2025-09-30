@@ -6,9 +6,8 @@
 #
 # Licensed under the MIT License.
 # ==============================================================================
-import os, shutil
+import os
 import jax.numpy as jnp
-import jax
 import numpy as np
 from models.datastructures import NetworkArchitectureType, TransferLearning
 
@@ -80,11 +79,11 @@ if settings.normalize_data:
             ymin, ymax = min(yminmax[:,0]), max(yminmax[:,1])    
         y_test = normalizeDomain(y_test, ymin, ymax, from_zero=from_zero)
 
-y_feat = featexp.fourierFeatureExpansion_f0(settings.f0_feat)
-#y_feat = featexp.fourierFeatureExpansion_gaussian((10,3), mean=fmax/2, std_dev=fmax/2)
-#y_feat = featexp.fourierFeatureExpansion_exact_sol([fmax, fmax/2, fmax/6], c, 3.0, 3.0)
+y_feat_fn = featexp.fourierFeatureExpansion_f0(settings.f0_feat)
+#y_feat_fn = featexp.fourierFeatureExpansion_gaussian((10,3), mean=fmax/2, std_dev=fmax/2)
+#y_feat_fn = featexp.fourierFeatureExpansion_exact_sol([fmax, fmax/2, fmax/6], c, 3.0, 3.0)
 
-y_test = y_feat(y_test)
+y_test = y_feat_fn(y_test)
 
 # setup network
 in_tn = y_test.shape[1]

@@ -12,10 +12,9 @@ import os
 from pathlib import Path
 import shutil
 from typing import Callable, Dict, List, TypeAlias
-import jax
 import numpy as np
 from flax import linen as nn           # The Linen API
-from deeponet_acoustics.utils.utils import expandCnnData
+
 
 class NetworkArchitectureType(Enum):    
     MLP = 1
@@ -36,18 +35,6 @@ class BoundaryType(Enum):
 class SourceType(Enum):
     IC = 1
     INJECTION = 2
-
-@dataclass
-class NetworkContainer:
-    in_dim: List[float]
-    network: nn.Module
-
-    def __init__(self, network: nn.Module, in_dim):
-        self.network = network
-        self.in_dim = in_dim
-        
-        is_resnet = network.network_type == NetworkArchitectureType.RESNET
-        print(network.tabulate(jax.random.PRNGKey(1234), expandCnnData(np.ones(in_dim)) if is_resnet else np.expand_dims(np.ones(in_dim), axis=0)))
 
 @dataclass
 class SourceInfo:

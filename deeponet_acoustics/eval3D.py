@@ -7,10 +7,11 @@
 # Licensed under the MIT License.
 # ==============================================================================
 import os
+from typing import Any
 import numpy as np
 from pathlib import Path
-import utils.utils as utils
 
+import deeponet_acoustics.utils.utils as utils
 from deeponet_acoustics.models.datastructures import EvaluationSettings, NetworkArchitectureType, TransferLearning
 from deeponet_acoustics.datahandlers.datagenerators import DataH5Compact, DataSourceOnly, DatasetStreamer, getNumberOfSources
 from deeponet_acoustics.models.deeponet import DeepONet
@@ -20,20 +21,21 @@ import deeponet_acoustics.datahandlers.data_rw as rw
 import deeponet_acoustics.plotting.visualizing as plotting
 from deeponet_acoustics.setup.configurations import setupPlotParams
 from deeponet_acoustics.setup.settings import SimulationSettings
-import deeponet_acoustics.setup.parsers as parsers
 import deeponet_acoustics.datahandlers.io as IO
 
-def evaluate(settings_path, settings_eval_path):
+def evaluate(settings_dict: dict[str, Any], settings_eval_dict: dict[str, Any]):
     prune_spatial = 1
 
-    settings_dict = parsers.parseSettings(settings_path)
+    # settings_dict = parsers.parseSettings(settings_path)
+    # settings_eval_dict = parsers.parseSettings(settings_eval_path)
+
     settings = SimulationSettings(settings_dict)
     settings.dirs.createDirs()
 
     path_receivers = os.path.join(settings.dirs.figs_dir , "receivers")
     Path(path_receivers).mkdir(parents=True, exist_ok=True)
 
-    settings_eval_dict = parsers.parseSettings(settings_eval_path)
+    
     if 'source_positions' in settings_eval_dict:
         # sources are explicitly set
         settings_eval = EvaluationSettings(settings_eval_dict)
@@ -53,7 +55,7 @@ def evaluate(settings_path, settings_eval_path):
 
     ### Initialize model ###
     f = settings.f0_feat
-    y_feat = fourierFeatureExpansion_f0(f)
+    y_feat_fn = fourierFeatureExpansion_f0(f)
     
     flatten_ic = branch_net.architecture != NetworkArchitectureType.RESNET
 
@@ -69,7 +71,7 @@ def evaluate(settings_path, settings_eval_path):
             flatten_ic=flatten_ic, data_prune=prune_spatial, norm_data=settings.normalize_data)
         assert settings_eval.num_srcs == metadata.N, "mismatch between DataH5Compact's num srcs and previously loaded"
     
-    dataset = DatasetStreamer(metadata, y_feat_extractor=y_feat)
+    dataset = DatasetStreamer(metadata, y_feat_extract_fn=y_feat_fn)
 
     # assert that the time step resolution of the test data is the same as the resolution of the trained model, 
     # since we do not interpolate in time (not needed)
@@ -79,29 +81,24 @@ def evaluate(settings_path, settings_eval_path):
         raise Exception(f"Time steps differs between training and validation data: \nN_train={len(metadata.tsteps)} N_val={len(metadata_model.tsteps)}, dt_train={metadata.tsteps[1]-metadata.tsteps[0]} and dt_val={metadata_model.tsteps[1]-metadata_model.tsteps[0]}.\n The network is not supposed to learn temporal interpolation. Exiting.")
 
     ############## SETUP NETWORK ##############
-    in_tn = y_feat(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
+    in_tn = y_feat_fn(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
     tn_fnn = setupNetwork(trunk_net, in_tn, 'tn')
-    bn_fnn = setupNetwork(branch_net, metadata.u_shape, 'bn')
+    in_bn = metadata.u_shape
+    bn_fnn = setupNetwork(branch_net, in_bn, 'bn')
 
-    lr = settings.training_settings.learning_rate    
-    bs = settings.training_settings.batch_size_branch * settings.training_settings.batch_size_coord,
-    adaptive_weights_shape = bs if settings.training_settings.use_adaptive_weights else []
     transfer_learning = TransferLearning({'transfer_learning': {'resume_learning': True}}, 
                                         settings.dirs.models_dir)
     
-    model = DeepONet(lr, bn_fnn, tn_fnn, 
+    model = DeepONet(settings.training_settings, metadata,
+                     (bn_fnn, in_bn), (tn_fnn, in_tn),
                      settings.dirs.models_dir,
-                     decay_steps=settings.training_settings.decay_steps,
-                     decay_rate=settings.training_settings.decay_rate,
-                     transfer_learning= transfer_learning,
-                     adaptive_weights_shape=adaptive_weights_shape)
-
+                     transfer_learning=transfer_learning)
 
     model.plotLosses(settings.dirs.figs_dir)
 
-    tdim = metadata.num_tsteps
+    tdim = len(metadata.tsteps)
     xxyyzztt = metadata.xxyyzztt
-    y_in = y_feat(xxyyzztt)
+    y_in = y_feat_fn(xxyyzztt)
 
     xxyyzz_phys = metadata.denormalizeSpatial(xxyyzztt[:,0:3])
     mesh_phys = metadata.denormalizeSpatial(metadata.mesh)
@@ -159,7 +156,7 @@ def evaluate(settings_path, settings_eval_path):
 
         y_rcvs = np.repeat(np.array(r0_list_norm), len(metadata.tsteps), axis=0)
         tsteps_rcvs = np.tile(metadata.tsteps, len(r0_list_norm))
-        yi = y_feat(np.concatenate((y_rcvs, np.expand_dims(tsteps_rcvs, 1)), axis=1))
+        yi = y_feat_fn(np.concatenate((y_rcvs, np.expand_dims(tsteps_rcvs, 1)), axis=1))
 
         # predict using the DeepONet models
         ir_predict = model.predict_s(model.params, u_test_i, yi)

@@ -10,19 +10,14 @@ import flax
 import jax.numpy as jnp
 from numpy import dtype
 from flax import linen as nn
-from typing import Any
+from typing import Any, Callable
 from jax import random
-from jax import core
 from dataclasses import dataclass
+from jax.typing import ArrayLike
 
-from deeponet_acoustics.models.datastructures import NetworkArchitecture, NetworkArchitectureType, NetworkContainer
-
-#https://github.com/google/flax/blob/main/examples/wmt/models.py
-#https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/JAX/tutorial2/Introduction_to_JAX.html
-#https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/guide4/Research_Projects_with_JAX.html
+from deeponet_acoustics.models.datastructures import NetworkArchitecture, NetworkArchitectureType
 
 DTypeLikeInexact = Any  # DTypeLikeFloat | DTypeLikeComplex
-Array = Any
 
 def freezeSomdattaLayers():
     freeze_set = set()
@@ -89,9 +84,9 @@ def flattened_traversal(fn, network_keys):
   return mask
 
 def sinusoidal_init(is_first=False):
-    def init(key: Array,
-             shape: Array,
-             dtype: DTypeLikeInexact = dtype) -> Array:
+    def init(key: ArrayLike,
+             shape: ArrayLike,
+             dtype: DTypeLikeInexact = dtype) -> ArrayLike:
 
         d_in = shape[0]
         d_out = shape[1]
@@ -107,10 +102,8 @@ def sinusoidal_init(is_first=False):
         return W
 
     return init
-    
-# https://datascience.stackexchange.com/questions/66944/is-it-wrong-to-use-glorot-initialization-with-relu-activation
-# https://stackoverflow.com/questions/48641192/xavier-and-he-normal-initialization-difference/48641573#48641573
-def setupNetwork(net: NetworkArchitecture, in_bn: Array, tag: str) -> NetworkContainer:
+
+def setupNetwork(net: NetworkArchitecture, in_bn: ArrayLike, tag: str) -> tuple[nn.Module, tuple[float]]:
     if net.activation == "sin":
         activation = jnp.sin
         kernel_init = sinusoidal_init
@@ -129,33 +122,33 @@ def setupNetwork(net: NetworkArchitecture, in_bn: Array, tag: str) -> NetworkCon
         angular_freq = 1.0
     else:
         raise Exception(f"Activation function not supported: {net.activation}")
-
+        
     if net.architecture == NetworkArchitectureType.MLP:
         layers  = net.num_hidden_layers*[net.num_hidden_neurons]  + [net.num_output_neurons]
         fnn = MLP(layers=layers, tag=tag, 
                   activation=activation, kernel_init=kernel_init, angular_freq=angular_freq)
-        return NetworkContainer(fnn, in_bn)
+        return fnn
     elif net.architecture == NetworkArchitectureType.MOD_MLP:
         layers  = net.num_hidden_layers*[net.num_hidden_neurons]  + [net.num_output_neurons]
         fnn = ModMLP(layers=layers, tag=tag, 
                      activation=activation, kernel_init=kernel_init, angular_freq=angular_freq)
-        return NetworkContainer(fnn, in_bn)
+        return fnn
     elif net.architecture == NetworkArchitectureType.RESNET:
         num_group_blocks = net.num_group_blocks # : tuple = (3, 3, 3, 3) # todo: read from settings
         c_hidden = net.cnn_hidden_layers # : tuple = (16, 32, 64, 128) # todo: read from settings
         layers  = net.num_hidden_layers*[net.num_hidden_neurons]  + [net.num_output_neurons]
         kernel_size = (3,3) if len(in_bn.shape) == 2 else (3,3,3)
         resnet = ResNet(layers_fnn=layers, num_blocks=num_group_blocks, c_hidden=c_hidden, act_fn=activation, kernel_size=kernel_size)
-        return NetworkContainer(resnet, in_bn)
+        return resnet
     else:
-        raise Exception('Network architecture is not supported')    
+        raise Exception('Network architecture is not supported')        
 
 @dataclass
 class MLP(nn.Module):
     layers: list[int]
     angular_freq: float = 30 # angular frequency for inputs to first layer
-    activation: callable = jnp.sin
-    kernel_init: callable = sinusoidal_init
+    activation: Callable = jnp.sin
+    kernel_init: Callable = sinusoidal_init
     tag: str = "<undef>"
     
     @nn.compact
@@ -184,8 +177,8 @@ class MLP(nn.Module):
 class ModMLP(nn.Module):
     layers: list[int]
     angular_freq: float = 30 # angular frequency for inputs to first layer
-    activation: callable = jnp.sin
-    kernel_init: callable = sinusoidal_init
+    activation: Callable = jnp.sin
+    kernel_init: Callable = sinusoidal_init
     tag: str = "<undef>"
     network_type: NetworkArchitectureType = NetworkArchitectureType.MOD_MLP
     
@@ -225,7 +218,7 @@ class ModMLP(nn.Module):
 resnet_kernel_init = nn.initializers.variance_scaling(2.0, mode='fan_out', distribution='normal')
 
 class ResNetBlock(nn.Module):
-    act_fn : callable  # Activation function
+    act_fn : Callable  # Activation function
     c_out : int   # Output feature size
     subsample : bool = False  # If True, we apply a stride inside F
     kernel_size : tuple = (3, 3)    
@@ -286,8 +279,8 @@ class ResNet(nn.Module):
     num_blocks : tuple
     c_hidden : tuple
     kernel_size: tuple = (3, 3)
-    kernel_sine_init: callable = sinusoidal_init
-    act_fn : callable = nn.relu    
+    kernel_sine_init: Callable = sinusoidal_init
+    act_fn : Callable = nn.relu    
     block_class : nn.Module = ResNetBlock
     network_type: NetworkArchitectureType = NetworkArchitectureType.RESNET
 
@@ -330,7 +323,7 @@ class Cnn(nn.Module):
     num_conv : int
     c_hidden : tuple
     kernel_size: tuple = (3, 3)
-    act_fn : callable = nn.relu
+    act_fn : Callable = nn.relu
 
     @nn.compact
     def __call__(self, x, output_layer_indx=-1, train=True):

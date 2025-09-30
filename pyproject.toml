@@ -37,4 +37,5 @@ cuda12 = [
 
 [project.scripts]
 deeponet-train3d = "deeponet_acoustics.scripts.main3D_train:main"
+deeponet-infer3d = "deeponet_acoustics.scripts.main3D_inference:main"
 deeponet-train1d2d = "deeponet_acoustics.scripts.main1D2D_train:main"
