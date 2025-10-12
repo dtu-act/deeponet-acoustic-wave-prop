@@ -6,30 +6,30 @@
     "configurations": [
         {
             "name": "Python: Current File",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal"
         },
         {
             "name": "Python: TRAIN 3D",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "program": "main3D_train.py",
+            "module": "deeponet_room_acoustics.main3D_train",
             "args": [
                 "--path_settings",
-                "scripts/threeD/settings.json",
+                "json_setups/threeD/settings.json",
             ],
             "console": "integratedTerminal"
         },
         {
             "name": "Python: TRAIN 1D/2D",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "program": "main1D2D_train.py",
+            "module": "deeponet_room_acoustics.main1D2D_train",
             "args": [
                 "--path_settings",
-                "scripts/twoD/settings.json",
+                "json_setups/twoD/settings.json",
             ],
             "console": "integratedTerminal"
         },        
