@@ -9,20 +9,24 @@
 import os
 import jax.numpy as jnp
 import numpy as np
-from models.datastructures import NetworkArchitectureType, TransferLearning
-
-from models.networks_flax import setupNetwork
-from datahandlers.datagenerators import normalizeDomain, normalizeData
-from setup.data import setupData
-from setup.configurations import setupPlotParams
-import utils.utils as utils
-from models.deeponet import DeepONet
-import utils.feat_expansion as featexp
-import datahandlers.data_rw as rw
-import visualization.visualizing as plotting
 from pathlib import Path
 
-def inference(settings, custom_data_path=None, tmax=None, do_animate=False):
+from deeponet_room_acoustics.models.datastructures import NetworkArchitectureType, TransferLearning
+from deeponet_room_acoustics.models.networks_flax import setupNetwork
+from deeponet_room_acoustics.datahandlers.datagenerators import normalizeDomain, normalizeData
+from deeponet_room_acoustics.setup.data import setupData
+from deeponet_room_acoustics.setup.configurations import setupPlotParams
+from deeponet_room_acoustics.setup.settings import SimulationSettings
+import deeponet_room_acoustics.utils.utils as utils
+from deeponet_room_acoustics.models.deeponet import DeepONet
+import deeponet_room_acoustics.utils.feat_expansion as featexp
+import deeponet_room_acoustics.datahandlers.data_rw as rw
+import deeponet_room_acoustics.visualization.visualizing as plotting
+
+
+def inference(settings_dict, custom_data_path=None, tmax=None, do_animate=False):
+    settings = SimulationSettings(settings_dict)
+    
     if custom_data_path:
         testing_data_path = custom_data_path
     else:
@@ -37,7 +41,7 @@ def inference(settings, custom_data_path=None, tmax=None, do_animate=False):
         tmax = settings.tmax
 
     # load testing data
-    data_test = rw.loadDataFromH5(testing_data_path, tmax=tmax)
+    dataset_test = rw.loadDataFromH5(testing_data_path, tmax=tmax)
     simulation_settings = rw.loadAttrFromH5(settings.dirs.training_data_path)
 
     c_phys = 343
@@ -46,26 +50,25 @@ def inference(settings, custom_data_path=None, tmax=None, do_animate=False):
 
     prune_spatial = 2
 
-    conn_test = data_test.conn[::prune_spatial,:]
-    mesh_test = data_test.mesh[::prune_spatial,:]
-    t_test = data_test.t
-    p_test = data_test.pressures[:,:,::prune_spatial]
-    up_test = data_test.upressures
-    x0_srcs = data_test.x0_srcs
-    ushape_test = data_test.ushape # TODO for CNNs
+    mesh_test = dataset_test.mesh[::prune_spatial,:]
+    t_test = dataset_test.t
+    p_test = dataset_test.pressures[:,:,::prune_spatial]
+    up_test = dataset_test.upressures
+    x0_srcs = dataset_test.x0_srcs
+    ushape_test = dataset_test.ushape # TODO for CNNs
 
     u_test,s_test,t1d_test,grid1d_test = setupData(mesh_test,p_test,up_test,t_test,ushape_test,do_fnn)
 
     y_test = jnp.hstack([grid1d_test, t1d_test])
 
     if settings.normalize_data:
-            from_zero = settings.trunk_net.activation == "relu"
-            yminmax = simulation_settings['domain_minmax']
-            if data_test.dim == 1:
-                ymin, ymax = yminmax[0], yminmax[1]
-            else: # 2D
-                ymin, ymax = min(yminmax[:,0]), max(yminmax[:,1])    
-            y_test = normalizeDomain(y_test, ymin, ymax, from_zero=from_zero)
+        from_zero = settings.trunk_net.activation == "relu"
+        yminmax = simulation_settings['domain_minmax']
+        if dataset_test.dim == 1:
+            ymin, ymax = yminmax[0], yminmax[1]
+        else: # 2D
+            ymin, ymax = min(yminmax[:,0]), max(yminmax[:,1])    
+        y_test = normalizeDomain(y_test, ymin, ymax, from_zero=from_zero)
 
     y_feat_fn = featexp.fourierFeatureExpansion_f0(settings.f0_feat)
     #y_feat_fn = featexp.fourierFeatureExpansion_gaussian((10,3), mean=fmax/2, std_dev=fmax/2)
@@ -74,22 +77,19 @@ def inference(settings, custom_data_path=None, tmax=None, do_animate=False):
     y_test = y_feat_fn(y_test)
 
     # setup network
-    in_tn = y_test.shape[1]
-    trunk_nn = setupNetwork(trunk_net, in_tn, 'tn')
-    in_bn = u_test.shape[1]
-    branch_nn = setupNetwork(branch_net, in_bn, 'bn')
+    in_bn = u_test.shape[1::]
+    in_tn = y_test.shape
 
-    lr = settings.training_settings.learning_rate    
-    bs = settings.training_settings.batch_size_branch * settings.training_settings.batch_size_coord,
-    adaptive_weights_shape = bs if settings.training_settings.use_adaptive_weights else []
+    trunk_nn = setupNetwork(trunk_net, 'tn')
+    branch_nn = setupNetwork(branch_net, 'bn', len(in_bn))
+
     transfer_learning = TransferLearning({'transfer_learning': {'resume_learning': True}}, settings.dirs.models_dir)
-
-    model = DeepONet(lr, branch_nn, trunk_nn, 
-                    settings.dirs.models_dir,
-                    decay_steps=settings.training_settings.decay_steps,
-                    decay_rate=settings.training_settings.decay_rate,
-                    transfer_learning=transfer_learning,
-                    adaptive_weights_shape=adaptive_weights_shape)
+    
+    model = DeepONet(
+        settings.training_settings, dataset_test,
+        (branch_nn, in_bn), (trunk_nn, in_tn), 
+        settings.dirs.models_dir,
+        transfer_learning=transfer_learning)
 
     model.plotLosses(settings.dirs.figs_dir)
 
@@ -113,7 +113,7 @@ def inference(settings, custom_data_path=None, tmax=None, do_animate=False):
         S_pred_srcs[i_src,:,:] = np.array(s_pred_i).reshape(tdim,-1)
         S_test_srcs[i_src,:,:] = np.array(s_test_i).reshape(tdim,-1)
 
-        # if data_test.dim == 2:
+        # if dataset_test.dim == 2:
         #     IO.writeTriangleXdmf(grid_test, conn_test-1, t_test, S_pred_srcs[i_src], os.path.join(path_receivers, f"{i_src}_wavefield_pred{x0}.xdmf"))
         #     IO.writeTriangleXdmf(grid_test, conn_test-1, t_test, S_test_srcs[i_src], os.path.join(path_receivers, f"{i_src}_wavefield_test{x0}.xdmf"))
 
@@ -125,7 +125,7 @@ def inference(settings, custom_data_path=None, tmax=None, do_animate=False):
     if settings.normalize_data:
         from_zero = settings.trunk_net.activation == "relu"
         yminmax = simulation_settings['domain_minmax']
-        if data_test.dim == 1:
+        if dataset_test.dim == 1:
             ymin, ymax = yminmax[0], yminmax[1]
         else: # 2D
             ymin, ymax = min(yminmax[:,0]), max(yminmax[:,1])    
@@ -146,5 +146,5 @@ def inference(settings, custom_data_path=None, tmax=None, do_animate=False):
         ir_pred_srcs,ir_ref_srcs,tmax/c_phys,
         figs_dir=path_receivers,animate=do_animate)
 
-    if data_test.dim == 1:
+    if dataset_test.dim == 1:
         plotting.plotWaveFields1D(grid1d_test,t1d_test,S_pred_srcs,S_test_srcs,x0_srcs,c_phys,path_receivers)

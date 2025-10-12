@@ -64,15 +64,13 @@ def evaluate_inference_speed3D(settings, tmax_eval = 0.5):
     # setup network
     in_bn = metadata.u_shape[0]
     in_tn = y_feat_fn(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
-    branch_layers = branch_net.num_hidden_layers*[branch_net.num_hidden_neurons] + [branch_net.num_output_neurons]
-    trunk_layers  = trunk_net.num_hidden_layers*[trunk_net.num_hidden_neurons]  + [trunk_net.num_output_neurons]
 
     # setup network
     in_tn = y_feat_fn(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
-    tn_fnn = setupNetwork(trunk_net, in_tn, 'tn')
+    tn_fnn = setupNetwork(trunk_net, 'tn')
     networkInfo(tn_fnn, in_tn)
     in_bn = metadata.u_shape
-    bn_fnn = setupNetwork(branch_net, in_bn, 'bn')
+    bn_fnn = setupNetwork(branch_net, 'bn', len(metadata.u_shape))
     networkInfo(bn_fnn, in_bn)
 
     transfer_learning = TransferLearning({'transfer_learning': {'resume_learning': True}}, 

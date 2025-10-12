@@ -19,14 +19,14 @@
     "batch_size_branch": 64,
     "batch_size_coord": 200,
     
-    "branch_net_fnn": {
+    "branch_net": {
         "architecture": "mod-mlp",
         "activation": "sin",
         "num_hidden_layers": 2,
         "num_hidden_neurons": 2048
     },
-    "branch_net": {
-        "architecture": "resnet",
+    "_branch_net": {
+        "architecture": "cnn",
         "activation": "relu",
         "num_group_blocks": [3, 3, 3, 3],
         "cnn_hidden_layers": [16, 32, 64, 128],

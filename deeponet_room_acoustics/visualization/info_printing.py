@@ -9,11 +9,10 @@
 
 from deeponet_room_acoustics.datahandlers.datagenerators import DataInterface
 import jax.numpy as jnp
-from jax.typing import ArrayLike
 from flax import linen as nn
 from deeponet_room_acoustics.models.datastructures import NetworkArchitectureType
 
-def networkInfo(model: nn.Module, in_dim: ArrayLike) -> None:
+def networkInfo(model: nn.Module, in_dim: tuple) -> None:
     """Print network setup."""
     import jax
     from deeponet_room_acoustics.utils.utils import expandCnnData

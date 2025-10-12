@@ -24,7 +24,7 @@ def main():
          settings_train = json.load(json_file)
         
     custom_eval_data = args.h5_data if args.h5_data else None    
-    inference(settings_train, custom_data=custom_eval_data, do_animate=False)
+    inference(settings_train, custom_data_path=custom_eval_data, do_animate=False)
 
 if __name__ == "__main__":
     main()

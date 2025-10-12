@@ -67,10 +67,10 @@ def train(settings_dict: dict[str, Any]):
 
     # setup network
     in_tn = y_feat_fn(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
-    tn_fnn = setupNetwork(trunk_net, in_tn, 'tn')
+    tn_fnn = setupNetwork(trunk_net, 'tn')
     networkInfo(tn_fnn, in_tn)
     in_bn = metadata.u_shape
-    bn_fnn = setupNetwork(branch_net, in_bn, 'bn')
+    bn_fnn = setupNetwork(branch_net, 'bn', len(metadata.u_shape))
     networkInfo(bn_fnn, in_bn)
     
     model = DeepONet(settings.training_settings, metadata,

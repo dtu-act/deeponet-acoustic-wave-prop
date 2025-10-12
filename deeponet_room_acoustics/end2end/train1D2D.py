@@ -82,12 +82,12 @@ def train(settings_dict):
 
     # setup network
     in_bn = u_train.shape[1::]
-    in_tn = y_train.shape[1]
-
-    branch_nn = setupNetwork(branch_net, in_bn, 'bn')    
-    networkInfo(branch_nn, in_tn)
-    trunk_nn = setupNetwork(trunk_net, in_tn, 'tn')    
-    networkInfo(trunk_nn, in_tn)
+    in_tn = y_train.shape
+    
+    branch_nn = setupNetwork(branch_net, 'bn', len(in_bn))
+    networkInfo(branch_nn, in_bn)
+    trunk_nn = setupNetwork(trunk_net, 'tn')    
+    networkInfo(trunk_nn, in_tn)    
 
     if settings.transfer_learning == None:
         dataset = DataGenerator(u_train, y_train, s_train, training.batch_size_branch, training.batch_size_coord)

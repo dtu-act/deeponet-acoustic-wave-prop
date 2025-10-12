@@ -91,9 +91,9 @@ def evaluate(settings_dict: dict[str, Any], settings_eval_dict: dict[str, Any], 
 
     ############## SETUP NETWORK ##############
     in_tn = y_feat_fn(np.array([[0.0,0.0,0.0,0.0]])).shape[1]
-    tn_fnn = setupNetwork(trunk_net, in_tn, 'tn')
     in_bn = metadata.u_shape
-    bn_fnn = setupNetwork(branch_net, in_bn, 'bn')
+    tn_fnn = setupNetwork(trunk_net, 'tn')    
+    bn_fnn = setupNetwork(branch_net, 'bn', len(metadata.u_shape))
 
     transfer_learning = TransferLearning({'transfer_learning': {'resume_learning': True}}, 
                                         settings.dirs.models_dir)

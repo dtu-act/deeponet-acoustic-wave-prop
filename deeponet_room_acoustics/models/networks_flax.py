@@ -103,7 +103,7 @@ def sinusoidal_init(is_first=False):
 
     return init
 
-def setupNetwork(net: NetworkArchitecture, in_bn: ArrayLike, tag: str) -> tuple[nn.Module, tuple[float]]:
+def setupNetwork(net: NetworkArchitecture, tag: str, dim: int = -1) -> tuple[nn.Module, tuple[float]]:
     if net.activation == "sin":
         activation = jnp.sin
         kernel_init = sinusoidal_init
@@ -137,7 +137,7 @@ def setupNetwork(net: NetworkArchitecture, in_bn: ArrayLike, tag: str) -> tuple[
         num_group_blocks = net.num_group_blocks # : tuple = (3, 3, 3, 3) # todo: read from settings
         c_hidden = net.cnn_hidden_layers # : tuple = (16, 32, 64, 128) # todo: read from settings
         layers  = net.num_hidden_layers*[net.num_hidden_neurons]  + [net.num_output_neurons]
-        kernel_size = (3,3) if len(in_bn.shape) == 2 else (3,3,3)
+        kernel_size = (3,) * dim
         resnet = ResNet(layers_fnn=layers, num_blocks=num_group_blocks, c_hidden=c_hidden, act_fn=activation, kernel_size=kernel_size)
         return resnet
     else:

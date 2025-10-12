@@ -61,8 +61,13 @@ def loadDataFromH5(path_data, tmax=None):
         up = np.asarray(f['upressures'][()])
 
         conn = np.asarray(f['conn'][()]) if 'conn' in f else np.asarray([])
-        x0_srcs = np.asarray(f['x0_srcs'][()]) if 'x0_srcs' in f else np.asarray([])
-        if len(x0_srcs) > 0 and len(x0_srcs[0]) == 3:
+        if 'x0_srcs' in f:
+            x0_srcs = np.asarray(f['x0_srcs'][()])
+        else:
+            print("WARNING: x0_srcs not found in dataset")
+            x0_srcs = np.asarray([])
+            
+        if len(x0_srcs) > 0 and len(x0_srcs.shape) == 3:
             # 3D data was written wrongly at some point, remove this when all data is correct
             x0_srcs = x0_srcs[:,0,:] if x0_srcs.shape[1] == 1 else x0_srcs
             x0_srcs = x0_srcs.T if x0_srcs.shape[0] != up.shape[0] else x0_srcs
