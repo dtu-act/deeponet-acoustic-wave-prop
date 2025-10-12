@@ -31,9 +31,7 @@ def inference(settings_dict, custom_data_path=None, tmax=None, do_animate=False)
         testing_data_path = custom_data_path
     else:
         testing_data_path = settings.dirs.testing_data_path
-
-
-    do_fnn = settings.branch_net.architecture != NetworkArchitectureType.RESNET
+    
     branch_net = settings.branch_net
     trunk_net = settings.trunk_net
 
@@ -57,6 +55,7 @@ def inference(settings_dict, custom_data_path=None, tmax=None, do_animate=False)
     x0_srcs = dataset_test.x0_srcs
     ushape_test = dataset_test.ushape # TODO for CNNs
 
+    do_fnn = settings.branch_net.architecture != NetworkArchitectureType.RESNET
     u_test,s_test,t1d_test,grid1d_test = setupData(mesh_test,p_test,up_test,t_test,ushape_test,do_fnn)
 
     y_test = jnp.hstack([grid1d_test, t1d_test])

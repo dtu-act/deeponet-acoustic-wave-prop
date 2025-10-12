@@ -168,14 +168,15 @@ class DataGenerator(Dataset):
         s = self.s[idx_funcs[:,None],idx_coord]               # random samples for each sampled function batch
         u = self.u[idx_funcs,:]                               # sampled function batch        
 
-        if len(self.u_src) > 0:  # source function batch (if set)
-            idx_funcs_src = random.choice(key3, self.N_src, (self.batch_size_branch,), replace=False)
-            u_src = self.u_src[idx_funcs_src,:]
-        else:
-            u_src = self.u_src
+        # TODO: u_src was previously returned as inputs = (u, y, u_src), but breaks shared logic with 3D data. u_src doesn't seem to be used - remove this if so
+        # if len(self.u_src) > 0:  # source function batch (if set)
+        #     idx_funcs_src = random.choice(key3, self.N_src, (self.batch_size_branch,), replace=False)
+        #     u_src = self.u_src[idx_funcs_src,:]
+        # else:
+        #     u_src = self.u_src
 
         # Construct batch
-        inputs = (u, y, u_src)
+        inputs = (u, y)
         outputs = s
         return inputs, outputs, idx_coord
 

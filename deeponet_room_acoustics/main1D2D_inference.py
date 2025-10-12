@@ -10,10 +10,6 @@ import argparse
 import json
 from deeponet_room_acoustics.end2end.eval1D2D import inference
 
-# id = "spectral_sine_1D"
-# input_dir = "/work3/nibor/data/input1D"
-# output_path = "/work3/nibor/data/deeponet/output1D"
-# custom_eval_data = os.path.join(input_dir, "rect3x3_freq_indep_ppw_2_4_2_from_ppw_dx5_srcs33_val.h5")
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--path_settings", type=str, required=True)

@@ -12,7 +12,18 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python: Train/inference 3D",
+            "name": "Python: Train 3D",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "deeponet_room_acoustics.main3D_train",
+            "args": [
+                "--path_settings",
+                "json_setups/threeD/settings.json",
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Inference 3D",
             "type": "debugpy",
             "request": "launch",
             "module": "deeponet_room_acoustics.main3D_inference",

@@ -66,7 +66,7 @@ def loss(params: list, batch: list, branch_net: Callable, operator_net: Callable
 
     # extract data
     inputs, outputs, idx_coord, *_ = batch
-    u,y,*_ = inputs # TODO: should only unpack 2!
+    u, y = inputs
 
     # RESIDUAL LOSS - forward pass 
     branch_latent_batch = vmap(branch_net, (None, 0))(params, u) # vmaps along branch batch dimension     
