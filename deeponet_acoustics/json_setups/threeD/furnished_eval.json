@@ -1,0 +1,27 @@
+{
+    "model_dir": "/work3/nibor/data/deeponet/output3D/furnished_6ppw",    
+    "validation_data_dir": "/work3/nibor/1TB/input3D/furnished_1000hz_p4_5ppw_srcpos5_test",
+
+    "tmax": 17,
+
+    "write_full_wave_field": false,
+
+    "snap_to_grid": true,
+    "write_ir_plots": true,
+    "write_ir_animations": false,
+    "write_ir_wav": true,
+    
+    "recv_pos_0": [[2.25, 0.8, 1.2]],
+    "recv_pos_1": [[1.8,  0.8, 1.2]],
+    "recv_pos_2": [[1.5,  2.4, 1.2]],
+    "recv_pos_3": [[1.2,  0.8, 1.2]],
+    "recv_pos_4": [[0.75, 0.8, 1.2]],
+
+    "receiver_position_groups": [
+        "recv_pos_0",
+        "recv_pos_1",
+        "recv_pos_2",
+        "recv_pos_3",    
+        "recv_pos_4"
+    ]
+}
