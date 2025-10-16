@@ -1,5 +1,0 @@
-{
-    "python.defaultInterpreterPath": "/appl/python/3.10.7/bin/python3",
-    "python.linting.pylintEnabled": false,
-    "python.linting.enabled": false
-}

@@ -1,0 +1,40 @@
+{
+    "id": "cube_6ppw",
+
+    "___input_dir": "/localssd0/nibor/",
+    "input_dir": "/work3/nibor/1TB/input3D/",
+    "output_dir": "/work3/nibor/data/deeponet/output3D",
+
+    "training_data_dir": "cube2x2x2_1000hz_p6_6ppw_srcs2826_train",
+    "testing_data_dir": "cube2x2x2_1000hz_p4_5ppw_srcs100_val",
+
+    "tmax": 17.0,
+    
+    "f0_feat": [1.458,0.729,0.486],
+    "normalize_data": true,
+
+    "iterations": 80000,
+    "use_adaptive_weights": true,
+    "decay_steps": 2000,
+    "decay_rate": 0.90,
+    "learning_rate": 1e-3,
+    "optimizer": "adam",
+    
+    "__comment1__": "total batch_size is a multiple of branch and coordinate sizes",
+    "batch_size_branch": 64,
+    "batch_size_coord": 1000,
+
+    "branch_net": {
+        "architecture": "mod-mlp",
+        "activation": "sin",
+        "num_hidden_layers": 5,
+        "num_hidden_neurons": 2048
+    },
+    "trunk_net": {
+        "architecture": "mod-mlp",
+        "activation": "sin",
+        "num_hidden_layers": 5,
+        "num_hidden_neurons": 2048
+    },
+    "num_output_neurons": 100
+}
