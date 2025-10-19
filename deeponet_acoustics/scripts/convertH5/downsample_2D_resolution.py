@@ -5,68 +5,16 @@
 # All Rights Reserved.
 #
 # Licensed under the MIT License.
+#
+# Used for 2D data only: converting from high spatial/temporal resolutions to lower resolutions (data generated with MATLAB)
 # ==============================================================================
+import argparse
+
 import h5py
 import numpy as np
 
 
-def convertToDtypeCompactH5(
-    path_data_in, path_data_out, temporal_prune_skip=1, dtype=np.float16
-):
-    with h5py.File(path_data_in, "r") as f:
-        mesh = f["mesh"]
-        pressures = f["pressures"]
-        source_position = f["source_position"]
-        umesh = f["umesh"]
-        upressures = f["upressures"]
-
-        time_steps = pressures.attrs["time_steps"]
-        ushape = f["umesh"].attrs["umesh_shape"]
-
-        pressures = pressures[::temporal_prune_skip, :]
-        time_steps = time_steps[::temporal_prune_skip]
-
-        with h5py.File(path_data_out, "w") as fw:
-            fw.create_dataset("mesh", data=mesh, dtype=np.float32)
-            pressures_new = fw.create_dataset("pressures", data=pressures, dtype=dtype)
-            fw.create_dataset("source_position", data=source_position, dtype=np.float32)
-            umesh_new = fw.create_dataset("umesh", data=umesh, dtype=np.float32)
-            fw.create_dataset("upressures", data=upressures, dtype=dtype)
-
-            pressures_new.attrs.create("time_steps", time_steps, dtype=np.float32)
-            umesh_new.attrs.create("umesh_shape", ushape, dtype=np.float32)
-
-
-def splitDomain(path_data_in, path_data_out, domain_extract, dtype=np.float16):
-    with h5py.File(path_data_in, "r") as f:
-        mesh = f["mesh"]
-        pressures = f["pressures"]
-        source_position = f["source_position"]
-        umesh = f["umesh"]
-        upressures = f["upressures"]
-
-        time_steps = pressures.attrs["time_steps"]
-        ushape = f["umesh"].attrs["umesh_shape"]
-
-        mask = (mesh > np.array(domain_extract)[:, 0]) & (
-            mesh < np.array(domain_extract)[:, 1]
-        )
-        mask = np.logical_and.reduce(mask, axis=1)
-        mesh = mesh[mask]
-        pressures = pressures[:, mask]
-
-        with h5py.File(path_data_out, "w") as fw:
-            fw.create_dataset("mesh", data=mesh, dtype=np.float32)
-            pressures_new = fw.create_dataset("pressures", data=pressures, dtype=dtype)
-            fw.create_dataset("source_position", data=source_position, dtype=np.float32)
-            umesh_new = fw.create_dataset("umesh", data=umesh, dtype=np.float32)
-            fw.create_dataset("upressures", data=upressures, dtype=dtype)
-
-            pressures_new.attrs.create("time_steps", time_steps, dtype=np.float32)
-            umesh_new.attrs.create("umesh_shape", ushape, dtype=np.float32)
-
-
-def prunePPW2DH5(
+def downsample_2d_ppw(
     path_data_in,
     path_data_out,
     uprune_factor,
@@ -77,6 +25,29 @@ def prunePPW2DH5(
     indices_p=[],
     indices_t=[],
 ):
+    """
+    Convert 2D H5 data from high spatial/temporal resolutions to lower resolutions.
+    
+    This function downsamples MATLAB-generated 2D acoustic simulation data by reducing
+    the points per wavelength (PPW) in spatial, temporal, and uniform grid dimensions.
+    
+    Args:
+        path_data_in: Input H5 file path with high resolution data
+        path_data_out: Output H5 file path for downsampled data
+        uprune_factor: Factor to downsample uniform grid (must be >= 1)
+        p_ppw: Target points per wavelength for spatial dimension
+        t_ppw: Target points per wavelength for temporal dimension
+        src_density_fact: Factor to downsample source position density (must be <= 1)
+        dtype: Output data type (default: np.float32)
+        indices_p: Pre-defined spatial indices to use (optional)
+        indices_t: Pre-defined temporal indices to use (optional)
+        
+    Returns:
+        np.ndarray: Downsampled time steps array
+        
+    Raises:
+        AssertionError: If upsampling is attempted or invalid parameters provided
+    """
     assert src_density_fact <= 1, (
         "cannot upsample src pos density"
     )  # TODO: newer data includes the dx_src, so we won't need src_density_fact
@@ -249,3 +220,47 @@ def prunePPW2DH5(
     print(f"File saved to: {path_data_out}")
 
     return time_steps
+
+if __name__ == "__main__":
+    """
+    Example usage:
+    uprune_factor = 1  # prune factor
+    p_ppw = 6  # out: ppw for spatial dimension
+    t_ppw = 2  # out: ppw for temporal dimension
+    src_ppw = 5  # out: ppw for source position density
+    src_ppw_in = 5  # in: ppw for uniform grid
+    src_density_fact = src_ppw / src_ppw_in
+    u_ppw_in = 2  # in: ppw for uniform grid (only used for filename)
+    base_path = "/work3/nibor/1TB/deeponet/input_1D_2D/"
+    filepath_in = "rect2x2_freq_indep_ppw265_train_orig.h5"    
+    """
+    parser = argparse.ArgumentParser(description='Downsample 2D H5 data by reducing points per wavelength')
+    parser.add_argument('--base_path', required=True, help='Base path to data')
+    parser.add_argument('--input_file', required=True, help='Input H5 file path with high resolution data')
+    parser.add_argument('--uprune_factor', type=int, default=1, help='Factor to downsample uniform grid (default: 1)')
+    parser.add_argument('--p_ppw', type=int, default=6, help='Target points per wavelength for spatial dimension (default: 6)')
+    parser.add_argument('--t_ppw', type=int, default=2, help='Target points per wavelength for temporal dimension (default: 2)')    
+    parser.add_argument('--dtype', default='float32', choices=['float16', 'float32'], help='Output data type (default: float32)')
+    
+    args = parser.parse_args()
+
+    src_density_fact = (
+        args.src_ppw / args.src_ppw_in
+    )  # TODO: newer data includes the dx_src, so we can use src_ppw as argument instead of this.
+
+    input_file = f"{args.base_path}/{args.input_file}"
+    output_file = f"{args.base_path}/rect2x2_freq_indep_ppw_{int(args.u_ppw_in / args.uprune_factor)}_{args.p_ppw}_{args.t_ppw}_{args.src_ppw}_train.h5"
+
+    time_steps = downsample_2d_ppw(
+        input_file,
+        output_file,
+        uprune_factor=args.uprune_factor,
+        p_ppw=args.p_ppw,
+        t_ppw=args.t_ppw,
+        src_density_fact=args.src_density_fact,
+        dtype=np.float16,
+    )
+
+    print(f"Output file: {args.output_file}")
+    print(f"Time steps: {len(time_steps)} steps")
+    print("Downsampling completed successfully!")

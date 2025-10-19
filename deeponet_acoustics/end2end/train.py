@@ -104,9 +104,10 @@ def train(settings_dict: dict[str, Any]):
     datasetInfo(
         metadata, metadata_val, training.batch_size_coord, training.batch_size_branch
     )
-
+    
     # setup network
-    in_tn = y_feat_fn(np.array([[0.0, 0.0, 0.0, 0.0]])).shape[1]
+    input_example = next(iter(dataloader))[0][1]
+    in_tn = input_example.shape[-1]
     tn_fnn = setupNetwork(trunk_net, "tn")
     networkInfo(tn_fnn, in_tn)
     in_bn = metadata.u_shape

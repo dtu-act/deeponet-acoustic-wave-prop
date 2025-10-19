@@ -9,18 +9,18 @@
 import argparse
 import json
 
-from deeponet_acoustics.end2end.train1D2D import train
+from deeponet_acoustics.end2end.train import train
 
 
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--path_settings", type=str, required=True)
     args = parser.parse_args()
 
     with open(args.path_settings, "r") as json_file:
-        settings_train = json.load(json_file)
+        settings = json.load(json_file)
 
-    train(settings_train)
+    train(settings)
 
 
 if __name__ == "__main__":

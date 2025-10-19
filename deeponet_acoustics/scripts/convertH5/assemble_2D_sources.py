@@ -10,6 +10,7 @@
 #     We need to assemble the data into one file for the 2D Python code to process the data. Call this script
 #     before converting resolutions
 # ==============================================================================
+import argparse
 from pathlib import Path
 
 import h5py
@@ -18,7 +19,22 @@ import numpy as np
 import deeponet_acoustics.datahandlers.io as IO
 
 
-def assembleH5(data_dir, header_filepath_in, filepath_out):
+def assemble_2d_source_files(data_dir, header_filepath_in, filepath_out):
+    """
+    Assemble multiple H5 files (one per source position) into a single H5 file.
+    
+    When running MATLAB in parallel with multiple threads, each source position 
+    is written to separate files. This function combines them into one file 
+    for the 2D Python code to process.
+    
+    Args:
+        data_dir: Directory containing individual H5 files per source position
+        header_filepath_in: Path to header H5 file containing mesh and metadata
+        filepath_out: Output path for assembled H5 file
+        
+    Raises:
+        Exception: If no H5 files found in data_dir or if files don't exist
+    """
     filenames_h5 = IO.pathsToFileType(data_dir, ".h5", exclude="header")
     N_srcs = len(filenames_h5)
 
@@ -105,3 +121,19 @@ def assembleH5(data_dir, header_filepath_in, filepath_out):
                 pressure_new[i, :, :] = pressures[()]
                 upressure_new[i, :] = upressures[()].flatten()
                 x0_srcs_new[i, :] = x0_srcs[()]
+
+if __name__ == "__main__":
+    """
+    Example usage:
+    data_dir = "/work3/nibor/1TB/deeponet/input_1D_2D/Lshape3x3_freq_indep_ppw_2_4_2_5srcpos_val"
+    header_filepath_in = "/work3/nibor/1TB/deeponet/input_1D_2D/Lshape3x3_freq_indep_ppw_2_4_2_5srcpos_val/Lshape3x3_freq_indep_ppw_2_4_2_5srcpos_val_header.h5"
+    filepath_out = "/work3/nibor/1TB/deeponet/input_1D_2D/Lshape3x3_freq_indep_ppw_2_4_2_5srcpos_val.h5"
+    """
+    parser = argparse.ArgumentParser(description='Assemble multiple H5 files (one per source) into a single H5 file')
+    parser.add_argument('--data_dir', required=True, help='Directory containing individual H5 files per source position')
+    parser.add_argument('--header_file', required=True, help='Path to header H5 file containing mesh and metadata')
+    parser.add_argument('--output_file', required=True, help='Output path for assembled H5 file')
+    
+    args = parser.parse_args()
+    
+    assemble_2d_source_files(args.data_dir, args.header_file, args.output_file)

@@ -25,4 +25,4 @@ module load tensorrt/8.6.1.6-cuda-12.X
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:$CUDA_ROOT/extras/CUPTI/lib64/"
 
-deeponet-train1d2d --path_settings="json_setups/twoD_transfer_learning/Lshape/Lshape2_5x2_5_srcpos_3ppw_bs600_tar.json"
+deeponet-train --path_settings="json_setups/twoD_transfer_learning/Lshape/Lshape2_5x2_5_srcpos_3ppw_bs600_tar.json"

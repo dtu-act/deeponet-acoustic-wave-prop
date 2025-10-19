@@ -249,60 +249,6 @@ class DeepONet:
         if i % save_every != 0:
             self.writeState(i, pbar_epochs, dataloader, dataloader_val, writer)
 
-    def trainFromDataset1D2D(
-        self, dataset, dataset_val, nIter, save_every=100, do_timings=False
-    ):
-        """Main train loop using dataset directly (currently for 1D/2D data)."""
-        writer = SummaryWriter(log_dir=self.log_dir)
-        timer = TimingsWriter(log_dir=self.log_dir) if do_timings else None
-
-        data = iter(dataset)
-        pbar = trange(nIter)
-
-        i = self.step_offset
-        if i == 0:
-            self.writeState(i, pbar, dataset, dataset_val, writer)
-
-        timer.resetTimings() if do_timings else None
-        for _ in pbar:
-            timer.startTiming("total_iter") if do_timings else None
-            i += 1
-
-            timer.startTiming("dataloader") if do_timings else None
-            data_batch = next(data)
-            jax.block_until_ready(data_batch) if do_timings else None
-            timer.endTiming("dataloader") if do_timings else None
-
-            if do_timings:
-                timer.startTiming("backprop")
-                self.params, self.opt_state, _ = self.step(
-                    self.params, self.opt_state, data_batch
-                )
-                jax.block_until_ready(self.params)
-                jax.block_until_ready(self.opt_state)
-                timer.endTiming("backprop")
-                timer.endTiming("total_iter")
-
-                timer.writeTimings(
-                    {
-                        "total_iter": "Total time iter:",
-                        "dataloader": "Dataloader:",
-                        "backprop": "Back-propagation:",
-                    }
-                )
-                timer.resetTimings()
-            else:
-                self.params, self.opt_state, _ = self.step(
-                    self.params, self.opt_state, data_batch
-                )
-
-            if i % save_every == 0:
-                self.writeState(i, pbar, dataset, dataset_val, writer)
-
-        # save final result (if not already done)
-        if i % save_every != 0:
-            self.writeState(i, pbar, dataset, dataset_val, writer)
-
     def operator_net(self, params, B, y):
         trunk_params, b0 = params[TAG_TN], params[TAG_B0]
         T = self.trunk_apply(trunk_params, y)

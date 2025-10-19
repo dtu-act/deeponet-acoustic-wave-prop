@@ -31,6 +31,6 @@ rsync -a --delete --ignore-existing /work3/nibor/1TB/input3D/dome_1000hz_p4_6ppw
 rsync -a --delete --ignore-existing /work3/nibor/1TB/input3D/dome_1000hz_p4_5ppw_srcs94_val /localssd0/nibor/ || { echo 'copying validation data failed' ; exit 1; }
 echo ls /localssd0/nibor/
 
-deeponet-train3d --path_settings="json_setups/threeD/dome.json" || rm -rf /localssd0/nibor/
+deeponet-train --path_settings="json_setups/threeD/dome.json" || rm -rf /localssd0/nibor/
 
 rm -rf /localssd0/nibor/ || { echo 'removing data failed failed' ; exit 1; }

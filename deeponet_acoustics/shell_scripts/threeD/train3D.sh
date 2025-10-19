@@ -26,4 +26,4 @@ module load tensorrt/8.6.1.6-cuda-12.X
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:$CUDA_ROOT/extras/CUPTI/lib64/"
 
-deeponet-train3d --path_settings="json_setups/threeD/settings.json"
+deeponet-train --path_settings="json_setups/threeD/settings.json"
