@@ -15,7 +15,7 @@
             "name": "Python: Train 3D",
             "type": "debugpy",
             "request": "launch",
-            "module": "deeponet_acoustics.main3D_train",
+            "module": "deeponet_acoustics.main_train",
             "args": [
                 "--path_settings",
                 "json_setups/threeD/settings.json",
@@ -26,7 +26,7 @@
             "name": "Python: Inference 3D",
             "type": "debugpy",
             "request": "launch",
-            "module": "deeponet_acoustics.main3D_inference",
+            "module": "deeponet_acoustics.main_inference",
             "args": [
                 "--path_settings",
                 "json_setups/threeD/settings.json",
@@ -35,18 +35,5 @@
             ],
             "console": "integratedTerminal"
         },
-        {
-            "name": "Python: Train/inference 1D/2D",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "deeponet_room_acoustics.main1D2D_inference",
-            "args": [
-                "--path_settings",
-                "json_setups/twoD/settings.json",
-                // "--h5_data",
-                // "/Users/nikolasborrel/data/deeponet/data/rect2x2/inputs/rect2x2_freq_indep_ppw_2_4_2_val.h5",
-            ],
-            "console": "integratedTerminal"
-        },        
     ]
 }

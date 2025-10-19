@@ -28,6 +28,7 @@ dependencies = [
     "h5py",
     "tqdm",
     "meshio",
+    "h5py",
     "ruff",
     "pre-commit",
 ]
@@ -44,7 +45,5 @@ cuda12 = [
    lint.ignore = ["E501", "E731"]  # Ignore: line too long, lambda assignments
 
 [project.scripts]
-deeponet-train3d = "deeponet_acoustics.main3D_train:main"
-deeponet-infer3d = "deeponet_acoustics.main3D_inference:main"
-deeponet-train1d2d = "deeponet_acoustics.main1D2D_train:main"
-deeponet-infer1d2d = "deeponet_acoustics.main1D2D_inference:main"
+deeponet-train = "deeponet_acoustics.main_train:main"
+deeponet-infer = "deeponet_acoustics.main_inference:main"

@@ -10,14 +10,12 @@ import itertools
 import sys
 import time
 from abc import ABC, abstractmethod
-from functools import partial
 from pathlib import Path
 from typing import Callable
 
 import h5py
 import jax.numpy as jnp
 import numpy as np
-from jax import jit, random, vmap
 from torch.utils.data import Dataset
 
 import deeponet_acoustics.datahandlers.io as IO
@@ -91,126 +89,6 @@ class DataInterface(ABC):
     def tsteps(self) -> np.ndarray:
         """Time steps."""
         pass
-
-
-def normalizeFourierDataExpansionZero(data, data_nonfeat_dim, ymin=-1, ymax=1):
-    # used for normalizing cos/sin domain from [-1,1] to [0,1] (for relu activation function)
-    data_nonfeat = data[:, 0:data_nonfeat_dim]
-    data_feat_norm = normalizeData(
-        data[:, data_nonfeat_dim::], ymin, ymax, from_zero=True
-    )
-    return np.hstack((data_nonfeat, data_feat_norm))
-
-
-def normalizeData(data, ymin, ymax, from_zero=False):
-    if from_zero:
-        return (data - ymin) / (ymax - ymin)
-    else:
-        return 2 * (data - ymin) / (ymax - ymin) - 1
-
-
-def normalizeDomain(data, ymin, ymax, from_zero=False):
-    spatial = normalizeData(data[..., 0:-1], ymin, ymax, from_zero)
-    if from_zero:
-        temp = np.expand_dims(data[..., -1] / (ymax - ymin), [1])
-    else:
-        temp = np.expand_dims(data[..., -1] / ((ymax - ymin) / 2), [1])
-    return np.hstack((spatial, temp))
-
-
-# def denormalizeDomain(data, ymin, ymax, from_zero=False):
-#     spatial = (data[:, 0:-1] + 1)/2*(ymax - ymin) + ymin
-#     temp = data[:, -1]*2*(ymax - ymin)
-#     return np.hstack((spatial,temp))
-
-
-# Data generator
-class DataGenerator(Dataset):
-    """Only used for 1D/2D data."""
-
-    def __init__(
-        self,
-        u,
-        y,
-        s,
-        batch_size_branch,
-        batch_size_coord,
-        u_src=[],
-        rng_key=random.PRNGKey(1234),
-    ):
-        """
-        Batching is done along samples N (e.g. initial conditions)
-
-        Input dimensions:
-
-        u: (N, m)
-        y: (P, dim)
-        s: (N, P)
-        """
-        self.u = jnp.asarray(u)
-        self.y = jnp.asarray(y)
-        self.s = jnp.asarray(s)
-
-        self.u_src = jnp.asarray(u_src)
-
-        self.N = self.u.shape[0]
-        self.N_src = self.u_src.shape[0]
-        self.P = self.y.shape[0]
-
-        N_min = min(self.N_src, self.N) if self.N_src > 0 else self.N
-        self.batch_size_branch = (
-            batch_size_branch if batch_size_branch <= N_min else N_min
-        )
-        self.batch_size_coord = (
-            batch_size_coord
-            if batch_size_coord > 0 and batch_size_coord <= self.P
-            else self.P
-        )
-        self.key = rng_key
-
-    def __getitem__(self, index):
-        "Generate one batch of data"
-
-        self.key, key1, key2, key3 = random.split(self.key, 4)
-        inputs, outputs, idx_coord = self.__data_generation(key1, key2, key3)
-        return inputs, outputs, idx_coord
-
-    @partial(jit, static_argnums=(0,))
-    def __data_generation(self, key1, key2, key3):
-        "Generates data containing batch_size samples"
-
-        # sample functions randomly for each batch
-        idx_funcs = random.choice(
-            key1, self.N, (self.batch_size_branch,), replace=False
-        )
-
-        # sample coordinates randomly for each function
-        assert self.batch_size_coord > 0, (
-            "batch size for coordinate should be larger than 0"
-        )
-        idx_coord = random.choice(
-            key2, self.P, (self.batch_size_branch, self.batch_size_coord), replace=False
-        )
-
-        y = vmap(lambda idx: self.y[idx, :], (1))(
-            idx_coord.T
-        )  # random samples for each sampled function batch
-        s = self.s[
-            idx_funcs[:, None], idx_coord
-        ]  # random samples for each sampled function batch
-        u = self.u[idx_funcs, :]  # sampled function batch
-
-        # TODO: u_src was previously returned as inputs = (u, y, u_src), but breaks shared logic with 3D data. u_src doesn't seem to be used - remove this if so
-        # if len(self.u_src) > 0:  # source function batch (if set)
-        #     idx_funcs_src = random.choice(key3, self.N_src, (self.batch_size_branch,), replace=False)
-        #     u_src = self.u_src[idx_funcs_src,:]
-        # else:
-        #     u_src = self.u_src
-
-        # Construct batch
-        inputs = (u, y)
-        outputs = s
-        return inputs, outputs, idx_coord
 
 
 class DataXdmf(DataInterface):
@@ -663,7 +541,6 @@ class DataSourceOnly(DataInterface):
 
 
 class DatasetStreamer(Dataset):
-    dim_input: int
     Pmesh: int
     P: int
     batch_size_coord: int
@@ -705,7 +582,6 @@ class DatasetStreamer(Dataset):
             (lambda y: y) if y_feat_extract_fn is None else y_feat_extract_fn
         )
 
-        self.dim_input = self.__y_feat_extract_fn(jnp.array([[0, 0, 0, 0]])).shape[1]
         self.itercount = itertools.count()
         self.rng = np.random.default_rng()
 

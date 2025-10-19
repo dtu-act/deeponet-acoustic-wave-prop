@@ -9,7 +9,7 @@
 import argparse
 import json
 
-from deeponet_acoustics.end2end.inference3D import inference
+from deeponet_acoustics.end2end.inference import inference
 
 
 def main():

@@ -1,10 +1,10 @@
 {
     "id": "rect3x3_resnet",
-    "input_dir": "/Users/nikolasborrel/data/deeponet/data/rect2x2/inputs",
-    "output_dir": "/Users/nikolasborrel/data/deeponet/data/rect2x2/outputs",
+    "input_dir": "/Users/nikolasborrel/data/deeponet/data/input2D_split",
+    "output_dir": "/Users/nikolasborrel/data/deeponet/data/output2D_split",
 
-    "training_data_dir": "rect2x2_freq_indep_ppw_2_6_2_2_train.h5",
-    "testing_data_dir": "rect2x2_freq_indep_ppw_2_4_2_val.h5",
+    "training_data_dir": "rect2x2_freq_indep_ppw_2_6_2_5_train",
+    "testing_data_dir": "rect2x2_freq_indep_ppw_2_4_2_val",
 
     "tmax": 16.9,
     "normalize_data": true,

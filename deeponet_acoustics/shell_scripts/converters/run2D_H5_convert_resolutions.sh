@@ -20,4 +20,4 @@ module load python3/3.10.7
 
 # 2D: converting from high spatial/temporal resolutions to lower resolutions (data generated with MATLAB)
 # used for 2D sensibility analysis paper
-python3 deeponet_acoustics/scripts/convertH5/main2D_convert_resolutions_H5.py 
+python3 deeponet_acoustics/scripts/convertH5/convert2D_resolutions.py 

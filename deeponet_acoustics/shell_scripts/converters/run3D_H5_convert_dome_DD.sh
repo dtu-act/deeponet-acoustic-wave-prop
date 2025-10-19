@@ -19,4 +19,4 @@ export PYTHONPATH="${PYTHONPATH}:/zhome/00/4/50173/.local/bin"
 module load python3/3.10.7
 
 # 3D: used for converting the full dome to quarter dome for domain decomposition
-python3 deeponet_acoustics/scripts/convertH5/main3D_DD.py
+python3 deeponet_acoustics/scripts/convertH5/convert3D_domain_decomposition.py

@@ -25,17 +25,12 @@ uv run ruff check . --fix && uv run ruff format .
 
 **Training:**
 ```bash
-# For 3D models (used `uv deeponet-train3d ...` if installed with `uv`)
-deeponet-train3d --path_settings <settings.json>
-
-# For 1D/2D models
-deeponet-infer1d2d --path_settings <settings.json>
+uv run deeponet-train --path_settings <settings.json>
 ```
 
 **Inference:**
 ```bash
-deeponet-infer3d --path_settings <train_settings.json> --path_eval_settings <eval_settings.json>
-deeponet-infer1d2d  --path_settings <train_settings.json> --h5_data <path_to_data_to_use_overwriting_training>
+uv run deeponet-infer --path_settings <train_settings.json> --path_eval_settings <eval_settings.json>
 ```
 
 ## Configuration
@@ -173,21 +168,20 @@ Freeze specific layers:
 **2D data processing:**
 ```
 scripts/convertH5/
-├── assembly2D.py              # Assemble parallel-generated data
-├── convert2D_resolutions.py   # Downsample to specific resolutions
-├── main2D_assembly.py
-└── main2D_convert_resolutions.py
+├── assemble_2D_sources.py        # Assemble parallel-generated data
+├── downsample_2D_resolution.py   # Downsample to specific resolutions
+└── split_2D_by_source.py         # Split multi-source files to single-source format
 
 shell_scripts/converters/
-├── run2D_H5_assemble.sh
+├── run2D_H5_assembly.sh
 └── run2D_H5_convert_resolutions.sh
 ```
 
 **3D data processing:**
 ```
 scripts/convertH5/
-├── main3D_convert_dtype.py    # Convert float32 → float16
-└── main3D_DD.py               # Domain decomposition (dome geometry)
+├── convert_3D_dtype_compact.py         # Convert float32 → float16
+└── extract_3D_domain_decomposition.py  # Domain decomposition (dome geometry)
 
 shell_scripts/converters/
 ├── run3D_H5_convert_dtype.sh

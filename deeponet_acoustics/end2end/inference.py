@@ -111,7 +111,8 @@ def inference(
         )
 
     ############## SETUP NETWORK ##############
-    in_tn = y_feat_fn(np.array([[0.0, 0.0, 0.0, 0.0]])).shape[1]
+    input_example = next(iter(dataset))[0][1]
+    in_tn = input_example.shape[-1]
     in_bn = metadata.u_shape
     tn_fnn = setupNetwork(trunk_net, "tn")
     bn_fnn = setupNetwork(branch_net, "bn", len(metadata.u_shape))

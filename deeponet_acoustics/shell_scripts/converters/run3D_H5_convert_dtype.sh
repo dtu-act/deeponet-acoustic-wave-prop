@@ -19,4 +19,4 @@ export PYTHONPATH="${PYTHONPATH}:/zhome/00/4/50173/.local/bin"
 module load python3/3.10.7
 
 # 3D: used for converting DG-FEM data types from float32 to float16
-python3 deeponet_acoustics/scripts/convertH5/main3D_convert_dtype.py
+python3 deeponet_acoustics/scripts/convertH5/convert3D_dtype.py

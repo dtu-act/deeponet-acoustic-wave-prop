@@ -21,4 +21,4 @@ module load python3/3.10.7
 # 2D: when running MATLAB in parallel with multiple threads, each source position is written to separate files.
 #     We need to assemble the data into one file for the 2D Python code to process the data. Call this script 
 #     before converting resolutions
-python3 deeponet_acoustics/scripts/convertH5/main2D_assembly_H5.py
+python3 deeponet_acoustics/scripts/convertH5/assembly2D.py
