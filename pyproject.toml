@@ -28,13 +28,20 @@ dependencies = [
     "h5py",
     "tqdm",
     "meshio",
+    "ruff",
+    "pre-commit",
 ]
 
 [project.optional-dependencies]
 cuda12 = [
-    "jax==0.7.2",
+    "jax[cuda12]==0.7.2",
     "jaxlib==0.7.2",
 ]
+
+[tool.ruff]
+   line-length = 88
+   lint.select = ["E", "F", "I"]  # Error, pyflakes, isort rules
+   lint.ignore = ["E501", "E731"]  # Ignore: line too long, lambda assignments
 
 [project.scripts]
 deeponet-train3d = "deeponet_acoustics.main3D_train:main"
