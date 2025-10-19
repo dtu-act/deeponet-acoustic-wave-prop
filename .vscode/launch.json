@@ -15,7 +15,7 @@
             "name": "Python: Train 3D",
             "type": "debugpy",
             "request": "launch",
-            "module": "deeponet_room_acoustics.main3D_train",
+            "module": "deeponet_acoustics.main3D_train",
             "args": [
                 "--path_settings",
                 "json_setups/threeD/settings.json",
@@ -26,7 +26,7 @@
             "name": "Python: Inference 3D",
             "type": "debugpy",
             "request": "launch",
-            "module": "deeponet_room_acoustics.main3D_inference",
+            "module": "deeponet_acoustics.main3D_inference",
             "args": [
                 "--path_settings",
                 "json_setups/threeD/settings.json",
