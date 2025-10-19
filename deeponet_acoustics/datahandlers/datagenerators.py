@@ -1,26 +1,29 @@
 # ==============================================================================
 # Copyright 2025 Technical University of Denmark
-# Author: Nikolas Borrel-Jensen 
+# Author: Nikolas Borrel-Jensen
 #
 # All Rights Reserved.
 #
 # Licensed under the MIT License.
 # ==============================================================================
-import sys
-import jax.numpy as jnp
-from jax import random, vmap, jit
-from functools import partial
-import h5py
-import numpy as np
-from typing import Callable
-from pathlib import Path
 import itertools
+import sys
 import time
+from abc import ABC, abstractmethod
+from functools import partial
+from pathlib import Path
+from typing import Callable
+
+import h5py
+import jax.numpy as jnp
+import numpy as np
+from jax import jit, random, vmap
+from torch.utils.data import Dataset
+
+import deeponet_acoustics.datahandlers.io as IO
 from deeponet_acoustics.datahandlers.io import XdmfReader
 from deeponet_acoustics.models.datastructures import SimulationDataType
-import deeponet_acoustics.datahandlers.io as IO
-from abc import ABC, abstractmethod
-from torch.utils.data import Dataset
+
 
 class DataInterface(ABC):
     @property
@@ -89,84 +92,113 @@ class DataInterface(ABC):
         """Time steps."""
         pass
 
+
 def normalizeFourierDataExpansionZero(data, data_nonfeat_dim, ymin=-1, ymax=1):
-    # used for normalizing cos/sin domain from [-1,1] to [0,1] (for relu activation function)    
+    # used for normalizing cos/sin domain from [-1,1] to [0,1] (for relu activation function)
     data_nonfeat = data[:, 0:data_nonfeat_dim]
-    data_feat_norm = normalizeData(data[:, data_nonfeat_dim::], ymin, ymax, from_zero=True)
-    return np.hstack((data_nonfeat,data_feat_norm))
-    
+    data_feat_norm = normalizeData(
+        data[:, data_nonfeat_dim::], ymin, ymax, from_zero=True
+    )
+    return np.hstack((data_nonfeat, data_feat_norm))
+
+
 def normalizeData(data, ymin, ymax, from_zero=False):
     if from_zero:
-        return (data - ymin)/(ymax - ymin)
+        return (data - ymin) / (ymax - ymin)
     else:
-        return 2*(data - ymin)/(ymax - ymin) - 1
+        return 2 * (data - ymin) / (ymax - ymin) - 1
+
 
 def normalizeDomain(data, ymin, ymax, from_zero=False):
     spatial = normalizeData(data[..., 0:-1], ymin, ymax, from_zero)
     if from_zero:
-        temp = np.expand_dims(data[..., -1]/(ymax - ymin), [1])
+        temp = np.expand_dims(data[..., -1] / (ymax - ymin), [1])
     else:
-        temp = np.expand_dims(data[..., -1]/((ymax - ymin)/2), [1])
-    return np.hstack((spatial,temp))
-    
+        temp = np.expand_dims(data[..., -1] / ((ymax - ymin) / 2), [1])
+    return np.hstack((spatial, temp))
+
+
 # def denormalizeDomain(data, ymin, ymax, from_zero=False):
 #     spatial = (data[:, 0:-1] + 1)/2*(ymax - ymin) + ymin
 #     temp = data[:, -1]*2*(ymax - ymin)
 #     return np.hstack((spatial,temp))
 
+
 # Data generator
 class DataGenerator(Dataset):
     """Only used for 1D/2D data."""
-    def __init__(self, u, y, s,                  
-                 batch_size_branch, 
-                 batch_size_coord,
-                 u_src = [],
-                 rng_key=random.PRNGKey(1234)):
-        ''' 
-            Batching is done along samples N (e.g. initial conditions)
 
-            Input dimensions:
+    def __init__(
+        self,
+        u,
+        y,
+        s,
+        batch_size_branch,
+        batch_size_coord,
+        u_src=[],
+        rng_key=random.PRNGKey(1234),
+    ):
+        """
+        Batching is done along samples N (e.g. initial conditions)
 
-            u: (N, m)
-            y: (P, dim)
-            s: (N, P)
-        '''
+        Input dimensions:
+
+        u: (N, m)
+        y: (P, dim)
+        s: (N, P)
+        """
         self.u = jnp.asarray(u)
         self.y = jnp.asarray(y)
         self.s = jnp.asarray(s)
 
         self.u_src = jnp.asarray(u_src)
-        
+
         self.N = self.u.shape[0]
         self.N_src = self.u_src.shape[0]
         self.P = self.y.shape[0]
-        
+
         N_min = min(self.N_src, self.N) if self.N_src > 0 else self.N
-        self.batch_size_branch = batch_size_branch if batch_size_branch <= N_min else N_min        
-        self.batch_size_coord = batch_size_coord if batch_size_coord > 0 and batch_size_coord <= self.P else self.P
+        self.batch_size_branch = (
+            batch_size_branch if batch_size_branch <= N_min else N_min
+        )
+        self.batch_size_coord = (
+            batch_size_coord
+            if batch_size_coord > 0 and batch_size_coord <= self.P
+            else self.P
+        )
         self.key = rng_key
-    
+
     def __getitem__(self, index):
-        'Generate one batch of data'        
+        "Generate one batch of data"
 
         self.key, key1, key2, key3 = random.split(self.key, 4)
-        inputs, outputs, idx_coord = self.__data_generation(key1,key2,key3)
+        inputs, outputs, idx_coord = self.__data_generation(key1, key2, key3)
         return inputs, outputs, idx_coord
 
     @partial(jit, static_argnums=(0,))
     def __data_generation(self, key1, key2, key3):
-        'Generates data containing batch_size samples'
+        "Generates data containing batch_size samples"
 
         # sample functions randomly for each batch
-        idx_funcs = random.choice(key1, self.N, (self.batch_size_branch,), replace=False)        
+        idx_funcs = random.choice(
+            key1, self.N, (self.batch_size_branch,), replace=False
+        )
 
         # sample coordinates randomly for each function
-        assert self.batch_size_coord > 0, "batch size for coordinate should be larger than 0"
-        idx_coord = random.choice(key2, self.P, (self.batch_size_branch,self.batch_size_coord), replace=False)
-                
-        y = vmap(lambda idx: self.y[idx,:], (1))(idx_coord.T) # random samples for each sampled function batch
-        s = self.s[idx_funcs[:,None],idx_coord]               # random samples for each sampled function batch
-        u = self.u[idx_funcs,:]                               # sampled function batch        
+        assert self.batch_size_coord > 0, (
+            "batch size for coordinate should be larger than 0"
+        )
+        idx_coord = random.choice(
+            key2, self.P, (self.batch_size_branch, self.batch_size_coord), replace=False
+        )
+
+        y = vmap(lambda idx: self.y[idx, :], (1))(
+            idx_coord.T
+        )  # random samples for each sampled function batch
+        s = self.s[
+            idx_funcs[:, None], idx_coord
+        ]  # random samples for each sampled function batch
+        u = self.u[idx_funcs, :]  # sampled function batch
 
         # TODO: u_src was previously returned as inputs = (u, y, u_src), but breaks shared logic with 3D data. u_src doesn't seem to be used - remove this if so
         # if len(self.u_src) > 0:  # source function batch (if set)
@@ -186,31 +218,42 @@ class DataXdmf(DataInterface):
 
     P: int
     Pmesh: int
-    
+
     xmin: float
     xmax: float
     normalize_data: bool
-    def __init__(self, data_path, tmax=float('inf'), t_norm=1, flatten_ic=True, data_prune=1, norm_data=False, MAXNUM_DATASETS=sys.maxsize):
-        filenames_xdmf = IO.pathsToFileType(data_path, '.xdmf', exclude='rectilinear')
+
+    def __init__(
+        self,
+        data_path,
+        tmax=float("inf"),
+        t_norm=1,
+        flatten_ic=True,
+        data_prune=1,
+        norm_data=False,
+        MAXNUM_DATASETS=sys.maxsize,
+    ):
+        filenames_xdmf = IO.pathsToFileType(data_path, ".xdmf", exclude="rectilinear")
         self.normalize_data = norm_data
 
         # NOTE: we assume meshes, tags, etc are the same across all xdmf datasets
-        xdmf = XdmfReader(filenames_xdmf[0], tmax=tmax/t_norm)
+        xdmf = XdmfReader(filenames_xdmf[0], tmax=tmax / t_norm)
         self._tags_field = xdmf.tags_field
         self._tag_ufield = xdmf.tag_ufield
         self._data_prune = data_prune
         self._tsteps = xdmf.tsteps * t_norm
 
         with h5py.File(xdmf.filenameH5) as r:
-            self._mesh = np.array(r[xdmf.tag_mesh][::self._data_prune])
-            self.xmin, self.xmax = np.min(self._mesh), np.max(self._mesh)            
+            self._mesh = np.array(r[xdmf.tag_mesh][:: self._data_prune])
+            self.xmin, self.xmax = np.min(self._mesh), np.max(self._mesh)
             umesh_obj = r[xdmf.tag_umesh]
             umesh = np.array(umesh_obj[:])
             self._u_shape = (
-                [len(umesh)] if flatten_ic 
+                [len(umesh)]
+                if flatten_ic
                 else jnp.array(umesh_obj.attrs[xdmf.tag_ushape][:], dtype=int).tolist()
             )
-                
+
         if norm_data:
             self._mesh = self.normalizeSpatial(self._mesh)
             self._tsteps = self.normalizeTemporal(self._tsteps)
@@ -221,8 +264,10 @@ class DataXdmf(DataInterface):
         for i in range(0, min(MAXNUM_DATASETS, len(filenames_xdmf))):
             filename = filenames_xdmf[i]
             if Path(filename).exists():
-                xdmf = XdmfReader(filename, tmax/t_norm)
-                self._datasets.append(h5py.File(xdmf.filenameH5, 'r')) # add file handles and keeps open
+                xdmf = XdmfReader(filename, tmax / t_norm)
+                self._datasets.append(
+                    h5py.File(xdmf.filenameH5, "r")
+                )  # add file handles and keeps open
             else:
                 print(f"Could not be found (ignoring): {filename}")
 
@@ -230,51 +275,61 @@ class DataXdmf(DataInterface):
 
     # --- required abstract properties implemented ---
     @property
-    def datasets(self): return self._datasets
+    def datasets(self):
+        return self._datasets
 
     @property
-    def mesh(self): return self._mesh
+    def mesh(self):
+        return self._mesh
 
     @property
-    def u_shape(self): return self._u_shape
+    def u_shape(self):
+        return self._u_shape
 
     @property
-    def tsteps(self): return self._tsteps
+    def tsteps(self):
+        return self._tsteps
 
     @property
-    def tt(self): return self._tt
+    def tt(self):
+        return self._tt
 
     @property
-    def tags_field(self): return self._tags_field
+    def tags_field(self):
+        return self._tags_field
 
     @property
-    def tag_ufield(self): return self._tag_ufield
+    def tag_ufield(self):
+        return self._tag_ufield
 
     @property
-    def data_prune(self): return self._data_prune
+    def data_prune(self):
+        return self._data_prune
 
     @property
-    def N(self): return self._N
+    def N(self):
+        return self._N
 
     @property
     def Pmesh(self):
         """Total number of mesh points."""
-        return self.mesh.shape[0]        
+        return self.mesh.shape[0]
 
     @property
-    def P(self): 
+    def P(self):
         """Total number of time/space points."""
         return self.Pmesh * self.tsteps.shape[0]
 
     def normalizeSpatial(self, data):
-        return 2*(data - self.xmin)/(self.xmax - self.xmin) - 1
-    
+        return 2 * (data - self.xmin) / (self.xmax - self.xmin) - 1
+
     def normalizeTemporal(self, data):
-        return data/(self.xmax - self.xmin)/2
+        return data / (self.xmax - self.xmin) / 2
 
     def __del__(self):
         for dataset in self._datasets:
             dataset.close()
+
 
 class DataH5Compact(DataInterface):
     simulationDataType: SimulationDataType = SimulationDataType.H5COMPACT
@@ -288,8 +343,17 @@ class DataH5Compact(DataInterface):
     conn: np.ndarray
 
     # MAXNUM_DATASETS: SET TO E.G: 500 WHEN DEBUGGING ON MACHINES WITH LESS RESOURCES
-    def __init__(self, data_path, tmax=float('inf'), t_norm=1, flatten_ic=True, data_prune=1, norm_data=False, MAXNUM_DATASETS=sys.maxsize):
-        filenamesH5 = IO.pathsToFileType(data_path, '.h5', exclude='rectilinear')
+    def __init__(
+        self,
+        data_path,
+        tmax=float("inf"),
+        t_norm=1,
+        flatten_ic=True,
+        data_prune=1,
+        norm_data=False,
+        MAXNUM_DATASETS=sys.maxsize,
+    ):
+        filenamesH5 = IO.pathsToFileType(data_path, ".h5", exclude="rectilinear")
         self._data_prune = data_prune
         self.normalize_data = norm_data
 
@@ -299,27 +363,32 @@ class DataH5Compact(DataInterface):
         tag_umesh = "/umesh"
         tag_ushape = "umesh_shape"
         self._tags_field = ["/pressures"]
-        self._tag_ufield = "/upressures"             
+        self._tag_ufield = "/upressures"
 
         with h5py.File(filenamesH5[0]) as r:
-            self._mesh = np.array(r[tag_mesh][::self._data_prune])
-            self.conn = np.array(r[tag_conn]) if self._data_prune == 1 and tag_conn in r else np.array([])
+            self._mesh = np.array(r[tag_mesh][:: self._data_prune])
+            self.conn = (
+                np.array(r[tag_conn])
+                if self._data_prune == 1 and tag_conn in r
+                else np.array([])
+            )
             self.xmin, self.xmax = np.min(self._mesh), np.max(self._mesh)
-            
+
             umesh_obj = r[tag_umesh]
             umesh = np.array(umesh_obj[:])
             self._u_shape = (
-                jnp.array([len(umesh)], dtype=int) if flatten_ic 
+                jnp.array([len(umesh)], dtype=int)
+                if flatten_ic
                 else jnp.array(umesh_obj.attrs[tag_ushape][:], dtype=int)
             )
-            self._tsteps = r[self._tags_field[0]].attrs['time_steps']
-            self._tsteps = jnp.array([t for t in self._tsteps if t <= tmax/t_norm])
+            self._tsteps = r[self._tags_field[0]].attrs["time_steps"]
+            self._tsteps = jnp.array([t for t in self._tsteps if t <= tmax / t_norm])
             self._tsteps = self._tsteps * t_norm
 
             if self.normalize_data:
                 self._mesh = self.normalizeSpatial(self._mesh)
                 self._tsteps = self.normalizeTemporal(self._tsteps)
-                    
+
         self._tt = np.repeat(self._tsteps, self._mesh.shape[0])
         self._N = len(filenamesH5)
 
@@ -327,64 +396,75 @@ class DataH5Compact(DataInterface):
         for i in range(0, min(MAXNUM_DATASETS, len(filenamesH5))):
             filename = filenamesH5[i]
             if Path(filename).exists():
-                self._datasets.append(h5py.File(filename, 'r')) # add file handles and keeps open
+                self._datasets.append(
+                    h5py.File(filename, "r")
+                )  # add file handles and keeps open
             else:
                 print(f"Could not be found (ignoring): {filename}")
 
     # --- required abstract properties implemented ---
     @property
-    def datasets(self): return self._datasets
+    def datasets(self):
+        return self._datasets
 
     @property
-    def mesh(self): return self._mesh
+    def mesh(self):
+        return self._mesh
 
     @property
-    def u_shape(self): return self._u_shape
+    def u_shape(self):
+        return self._u_shape
 
     @property
-    def tsteps(self): return self._tsteps
+    def tsteps(self):
+        return self._tsteps
 
     @property
-    def tt(self): return self._tt
+    def tt(self):
+        return self._tt
 
     @property
-    def tags_field(self): return self._tags_field
+    def tags_field(self):
+        return self._tags_field
 
     @property
-    def tag_ufield(self): return self._tag_ufield
+    def tag_ufield(self):
+        return self._tag_ufield
 
     @property
-    def data_prune(self): return self._data_prune
+    def data_prune(self):
+        return self._data_prune
 
     @property
-    def N(self): return self._N
+    def N(self):
+        return self._N
 
     @property
     def Pmesh(self):
         """Total number of mesh points."""
-        return self.mesh.shape[0]        
+        return self.mesh.shape[0]
 
     @property
-    def P(self): 
+    def P(self):
         """Total number of time/space points."""
         return self.Pmesh * self.tsteps.shape[0]
 
     @property
     def xxyyzztt(self):
         xxyyzz = np.tile(self.mesh, (len(self.tsteps), 1))
-        return np.hstack((xxyyzz, self.tt.reshape(-1,1)))
+        return np.hstack((xxyyzz, self.tt.reshape(-1, 1)))
 
     def normalizeSpatial(self, data):
-        return 2*(data - self.xmin)/(self.xmax - self.xmin) - 1
-    
+        return 2 * (data - self.xmin) / (self.xmax - self.xmin) - 1
+
     def normalizeTemporal(self, data):
-        return data/(self.xmax - self.xmin)/2
-    
+        return data / (self.xmax - self.xmin) / 2
+
     def denormalizeSpatial(self, data):
-        return (data + 1)/2*(self.xmax - self.xmin) + self.xmin
+        return (data + 1) / 2 * (self.xmax - self.xmin) + self.xmin
 
     def denormalizeTemporal(self, data):
-        return data*2*(self.xmax - self.xmin)
+        return data * 2 * (self.xmax - self.xmin)
 
     def __del__(self):
         for dataset in self._datasets:
@@ -393,9 +473,10 @@ class DataH5Compact(DataInterface):
 
 class DatasetH5Mock:
     """Mimicking a H5 dataset.
-    
+
     Wrapping a dictionary inside a class with the same interface as the HDF5 object.
     """
+
     data: dict
 
     def __init__(self, data: dict):
@@ -403,7 +484,7 @@ class DatasetH5Mock:
 
     def __getitem__(self, item):
         return self.data[item]
-    
+
     def __contains__(self, key):
         return key in self.data
 
@@ -411,10 +492,11 @@ class DatasetH5Mock:
         # mocking HdF5 close method
         pass
 
+
 class DataSourceOnly(DataInterface):
-    """Used for inference only where arbitrary source positions can be used. 
-    
-    The mesh is loaded from HDF5 to ensure the grid distribution is the same 
+    """Used for inference only where arbitrary source positions can be used.
+
+    The mesh is loaded from HDF5 to ensure the grid distribution is the same
     as for the trained model required for the branch net.
     """
 
@@ -445,11 +527,16 @@ class DataSourceOnly(DataInterface):
         filenamesH5 = IO.pathsToFileType(data_path, ".h5", exclude="rectilinear")
 
         with h5py.File(filenamesH5[0]) as r:
-            self._mesh = np.array(r[tag_mesh][::self._data_prune])
+            self._mesh = np.array(r[tag_mesh][:: self._data_prune])
             self._conn = (
-                np.array(r[tag_conn]) if self._data_prune == 1 and tag_conn in r else np.array([])
+                np.array(r[tag_conn])
+                if self._data_prune == 1 and tag_conn in r
+                else np.array([])
             )
-            self._xmin, self._xmax = float(np.min(self._mesh)), float(np.max(self._mesh))
+            self._xmin, self._xmax = (
+                float(np.min(self._mesh)),
+                float(np.max(self._mesh)),
+            )
 
             umesh_obj = r[tag_umesh]
             if flatten_ic:
@@ -465,9 +552,9 @@ class DataSourceOnly(DataInterface):
                 self._mesh = self.normalizeSpatial(self._mesh)
                 self._tsteps = self.normalizeTemporal(self._tsteps)
 
-            gaussianSrc = (
-                lambda x, y, z, xyz0, sigma, ampl: ampl
-                * np.exp(-((x - xyz0[0]) ** 2 + (y - xyz0[1]) ** 2 + (z - xyz0[2]) ** 2) / sigma**2)
+            gaussianSrc = lambda x, y, z, xyz0, sigma, ampl: ampl * np.exp(
+                -((x - xyz0[0]) ** 2 + (y - xyz0[1]) ** 2 + (z - xyz0[2]) ** 2)
+                / sigma**2
             )
 
             self._datasets: list[h5py.File] = []
@@ -478,7 +565,12 @@ class DataSourceOnly(DataInterface):
             for i in range(self._N):
                 x0 = source_pos[i]
                 ic_field = gaussianSrc(
-                    umesh_obj[:, 0], umesh_obj[:, 1], umesh_obj[:, 2], x0, sigma0, p_minmax[1]
+                    umesh_obj[:, 0],
+                    umesh_obj[:, 1],
+                    umesh_obj[:, 2],
+                    x0,
+                    sigma0,
+                    p_minmax[1],
                 )
                 self._datasets.append(
                     DatasetH5Mock({self._tag_ufield: ic_field, "source_position": x0})
@@ -570,7 +662,7 @@ class DataSourceOnly(DataInterface):
         self.close()
 
 
-class DatasetStreamer(Dataset):  
+class DatasetStreamer(Dataset):
     dim_input: int
     Pmesh: int
     P: int
@@ -580,86 +672,109 @@ class DatasetStreamer(Dataset):
     p_minmax: tuple[float, float]
 
     itercount: itertools.count
-    
-    __y_feat_extract_fn = Callable[[list],list]
+
+    __y_feat_extract_fn = Callable[[list], list]
 
     total_time = 0
 
     @property
     def N(self):
         return self.data.N
-    
+
     @property
     def Pmesh(self):
         """Total number of mesh points."""
-        return self.data.mesh.shape[0]        
+        return self.data.mesh.shape[0]
 
     @property
-    def P(self): 
+    def P(self):
         """Total number of time/space points."""
         return self.Pmesh * self.data.tsteps.shape[0]
 
-    def __init__(self, data, batch_size_coord=-1, y_feat_extract_fn=None, p_minmax=(-2.0, 2.0)):
+    def __init__(
+        self, data, batch_size_coord=-1, y_feat_extract_fn=None, p_minmax=(-2.0, 2.0)
+    ):
         # batch_size_coord: set to -1 if full dataset should be used (e.g. for validation data)
         self.data = data
         self.p_minmax = p_minmax
-        
-        self.batch_size_coord = batch_size_coord if batch_size_coord <= self.P else self.P
-        self.__y_feat_extract_fn = (lambda y: y) if y_feat_extract_fn is None else y_feat_extract_fn
 
-        self.dim_input = self.__y_feat_extract_fn(jnp.array([[0,0,0,0]])).shape[1]
+        self.batch_size_coord = (
+            batch_size_coord if batch_size_coord <= self.P else self.P
+        )
+        self.__y_feat_extract_fn = (
+            (lambda y: y) if y_feat_extract_fn is None else y_feat_extract_fn
+        )
+
+        self.dim_input = self.__y_feat_extract_fn(jnp.array([[0, 0, 0, 0]])).shape[1]
         self.itercount = itertools.count()
         self.rng = np.random.default_rng()
-    
+
     def __len__(self):
         return len(self.data.datasets)
 
-    def __getitem__(self, idx):        
+    def __getitem__(self, idx):
         dataset = self.data.datasets[idx]
-        u_norm = 2*(dataset[self.data.tag_ufield][:] - self.p_minmax[0])/(self.p_minmax[1]-self.p_minmax[0])-1
+        u_norm = (
+            2
+            * (dataset[self.data.tag_ufield][:] - self.p_minmax[0])
+            / (self.p_minmax[1] - self.p_minmax[0])
+            - 1
+        )
         u = jnp.reshape(u_norm, self.data.u_shape)
 
         start_time_0 = time.perf_counter()
         if self.batch_size_coord > 0:
-            indxs_coord  = self.rng.choice(self.P, (self.batch_size_coord), replace=False)
+            indxs_coord = self.rng.choice(
+                self.P, (self.batch_size_coord), replace=False
+            )
         else:
-            indxs_coord = jnp.arange(0,self.P)
+            indxs_coord = jnp.arange(0, self.P)
         end_time_0 = time.perf_counter()
         self.total_time += end_time_0 - start_time_0
 
-        xxyyzz = self.data.mesh[np.mod(indxs_coord,self.data.Pmesh),:]
-        tt = self.data.tt[indxs_coord].reshape(-1,1)
-        y = self.__y_feat_extract_fn(np.hstack((xxyyzz,tt)))
-        
+        xxyyzz = self.data.mesh[np.mod(indxs_coord, self.data.Pmesh), :]
+        tt = self.data.tt[indxs_coord].reshape(-1, 1)
+        y = self.__y_feat_extract_fn(np.hstack((xxyyzz, tt)))
+
         # collect all field data for all timesteps - might be memory consuming
         # If memory load gets too heavy, consider selecting points at each timestep
         num_tsteps = len(self.data.tsteps)
         if self.data.simulationDataType == SimulationDataType.H5COMPACT:
-            s = dataset[self.data.tags_field[0]][0:num_tsteps,::self.data.data_prune].flatten()[indxs_coord]
+            s = dataset[self.data.tags_field[0]][
+                0:num_tsteps, :: self.data.data_prune
+            ].flatten()[indxs_coord]
         elif self.data.simulationDataType == SimulationDataType.XDMF:
             s = np.empty((self.P), dtype=jnp.float32)
             for j in range(num_tsteps):
-                s[j*self.data.Pmesh:(j+1)*self.Pmesh] = dataset[self.data.tags_field[j]][::self.data.data_prune]
+                s[j * self.data.Pmesh : (j + 1) * self.Pmesh] = dataset[
+                    self.data.tags_field[j]
+                ][:: self.data.data_prune]
             s = s[indxs_coord]
         elif self.data.simulationDataType == SimulationDataType.SOURCE_ONLY:
             s = []
         else:
-            raise Exception('Data format unknown: should be H5COMPACT or XDMF')
+            raise Exception("Data format unknown: should be H5COMPACT or XDMF")
 
         # normalize
-        x0 = self.data.normalizeSpatial(dataset['source_position'][:]) if 'source_position' in dataset else []    
-        
+        x0 = (
+            self.data.normalizeSpatial(dataset["source_position"][:])
+            if "source_position" in dataset
+            else []
+        )
+
         inputs = jnp.asarray(u), jnp.asarray(y)
         return inputs, jnp.asarray(s), indxs_coord, x0
 
+
 def getNumberOfSources(data_path: str):
-    return len(IO.pathsToFileType(data_path, '.h5', exclude='rectilinear'))
+    return len(IO.pathsToFileType(data_path, ".h5", exclude="rectilinear"))
+
 
 def numpy_collate(batch):
-  if isinstance(batch[0], np.ndarray):
-    return jnp.stack(batch)
-  elif isinstance(batch[0], (tuple,list)):
-    transposed = zip(*batch)
-    return [numpy_collate(samples) for samples in transposed]
-  else:
-    return np.array(batch)
+    if isinstance(batch[0], np.ndarray):
+        return jnp.stack(batch)
+    elif isinstance(batch[0], (tuple, list)):
+        transposed = zip(*batch)
+        return [numpy_collate(samples) for samples in transposed]
+    else:
+        return np.array(batch)

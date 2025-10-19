@@ -1,6 +1,6 @@
 # ==============================================================================
 # Copyright 2025 Technical University of Denmark
-# Author: Nikolas Borrel-Jensen 
+# Author: Nikolas Borrel-Jensen
 #
 # All Rights Reserved.
 #
@@ -8,7 +8,9 @@
 # ==============================================================================
 import argparse
 import json
+
 from deeponet_acoustics.end2end.train3D import train
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -17,8 +19,9 @@ def main():
 
     with open(args.path_settings, "r") as json_file:
         settings = json.load(json_file)
-    
+
     train(settings)
+
 
 if __name__ == "__main__":
     main()

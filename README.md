@@ -9,11 +9,17 @@ Train and deploy Deep Operator Networks (DeepONets) for simulating sound propaga
 git clone git@github.com:dtu-act/deeponet-acoustic-wave-prop.git
 cd deeponet-acoustic-wave-prop
 
-# option 1 - development installation via pip
-pip install -e .
-
-# option 2 - development installation via uv
+# option 1 - development installation via uv (recommended)
 uv sync
+pre-commit install
+# run ruff for formatting code
+uv run ruff check . --fix && uv run ruff format .
+
+# option 2 - development installation via pip
+pip install -e .
+pre-commit install
+# run ruff for formatting code
+uv run ruff check . --fix && uv run ruff format .
 ```
 *Tested with Python 3.11, JAX 0.7.2, Flax 0.10.7*.
 
@@ -251,5 +257,5 @@ If you use this code, please cite:
 
 ## Contact
 
-- **Data/Questions:** [Cheol-Ho Jeong](mailto:chje@dtu.dk)
-- **Implementation:** [Nikolas Borrel-Jensen](mailto:nikolasborrel@gmail.com)
+- **Data:** [Cheol-Ho Jeong](mailto:chje@dtu.dk)
+- **Implementation/Questions:** [Nikolas Borrel-Jensen](mailto:nikolasborrel@proton.me)
