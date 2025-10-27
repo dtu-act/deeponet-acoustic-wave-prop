@@ -10,14 +10,19 @@ git clone git@github.com:dtu-act/deeponet-acoustic-wave-prop.git
 cd deeponet-acoustic-wave-prop
 
 # option 1 - development installation via uv (recommended)
-uv sync
+uv sync --extra test
 pre-commit install
+
+# run tests
+uv run pytest tests/
+
 # run ruff for formatting code
 uv run ruff check . --fix && uv run ruff format .
 
 # option 2 - development installation via pip
-pip install -e .
+pip install -e .[test]
 pre-commit install
+
 # run ruff for formatting code
 uv run ruff check . --fix && uv run ruff format .
 ```

@@ -38,6 +38,10 @@ cuda12 = [
     "jax[cuda12]==0.7.2",
     "jaxlib==0.7.2",
 ]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
 
 [tool.ruff]
    line-length = 88

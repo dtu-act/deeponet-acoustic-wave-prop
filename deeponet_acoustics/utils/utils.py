@@ -11,22 +11,23 @@ import numpy as np
 
 
 def getNearestFromCoordinates(grid, coords):
-    r0 = np.empty(coords.shape[0], dtype=object)
-    r0_indxs = np.empty(coords.shape[0], dtype=object)
+    r0 = []
+    r0_indxs = []
 
     for i_src in range(len(coords)):
         N_recvs = len(coords[i_src])
-        coord_indxs = np.empty(N_recvs, dtype=int)
+        coord_indxs = []
 
         for j_recv in range(N_recvs):
-            coord_indxs[j_recv] = np.sum(
+            indx = np.sum(
                 np.abs(grid - coords[i_src][j_recv]), 1
             ).argmin()
+            coord_indxs.append(indx)
 
-        r0[i_src] = grid[coord_indxs]
-        r0_indxs[i_src] = coord_indxs
+        r0.append(grid[coord_indxs].tolist())
+        r0_indxs.append(coord_indxs)
 
-    return r0, r0_indxs
+    return np.array(r0), np.array(r0_indxs)
 
 
 def calcReceiverPositionsSimpleDomain(grid, x0_srcs):

@@ -195,6 +195,7 @@ class MLP(nn.Module):
     activation: Callable = jnp.sin
     kernel_init: Callable = sinusoidal_init
     tag: str = "<undef>"
+    network_type: NetworkArchitectureType = NetworkArchitectureType.MLP
 
     @nn.compact
     def __call__(self, inputs, output_layer_indx=-1):
