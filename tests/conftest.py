@@ -91,7 +91,9 @@ def create_mock_h5_file(sample_2d_mesh, sample_timesteps):
             elif spatial_dim == 3:
                 umesh = mesh
             else:  # 1D
-                umesh = np.column_stack([mesh[:, 0], np.zeros(n_mesh), np.zeros(n_mesh)])
+                umesh = np.column_stack(
+                    [mesh[:, 0], np.zeros(n_mesh), np.zeros(n_mesh)]
+                )
 
             f.create_dataset("/umesh", data=umesh)
             f["/umesh"].attrs["umesh_shape"] = np.array(umesh.shape, dtype=int)

@@ -319,6 +319,8 @@ class TestDeepONetComponents:
 
         # Check that adaptive weights are initialized
         assert "adaptive_weights" in model.params
-        expected_shape = (min(settings.batch_size_branch, mock_dataset.N) *
-                         min(settings.batch_size_coord, mock_dataset.P),)
+        expected_shape = (
+            min(settings.batch_size_branch, mock_dataset.N)
+            * min(settings.batch_size_coord, mock_dataset.P),
+        )
         assert model.params["adaptive_weights"].shape == expected_shape

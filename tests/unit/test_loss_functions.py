@@ -37,13 +37,19 @@ class TestLossFunctions:
         u = jnp.ones((batch_size, input_dim))
         y = jnp.ones((batch_size, coord_batch_size, 3))
         outputs = jnp.ones((batch_size, coord_batch_size))
-        idx_coord = jnp.arange(coord_batch_size * batch_size).reshape(batch_size, coord_batch_size)
+        idx_coord = jnp.arange(coord_batch_size * batch_size).reshape(
+            batch_size, coord_batch_size
+        )
 
         batch = ((u, y), outputs, idx_coord)
         params = {}
 
         loss_value = loss(
-            params, batch, mock_branch_net, mock_operator_net, apply_adaptive_weights=False
+            params,
+            batch,
+            mock_branch_net,
+            mock_operator_net,
+            apply_adaptive_weights=False,
         )
 
         # Loss should be a scalar
@@ -67,13 +73,19 @@ class TestLossFunctions:
         u = jnp.ones((batch_size, 5))
         y = jnp.ones((batch_size, coord_batch_size, 3))
         outputs = jnp.zeros((batch_size, coord_batch_size))  # Matches prediction
-        idx_coord = jnp.arange(coord_batch_size * batch_size).reshape(batch_size, coord_batch_size)
+        idx_coord = jnp.arange(coord_batch_size * batch_size).reshape(
+            batch_size, coord_batch_size
+        )
 
         batch = ((u, y), outputs, idx_coord)
         params = {}
 
         loss_value = loss(
-            params, batch, mock_branch_net, mock_operator_net, apply_adaptive_weights=False
+            params,
+            batch,
+            mock_branch_net,
+            mock_operator_net,
+            apply_adaptive_weights=False,
         )
 
         # Loss should be very small (zero or near-zero)
@@ -94,13 +106,19 @@ class TestLossFunctions:
             u = jnp.ones((batch_size, 10))
             y = jnp.ones((batch_size, coord_batch_size, 4))
             outputs = jnp.ones((batch_size, coord_batch_size))
-            idx_coord = jnp.arange(coord_batch_size * batch_size).reshape(batch_size, coord_batch_size)
+            idx_coord = jnp.arange(coord_batch_size * batch_size).reshape(
+                batch_size, coord_batch_size
+            )
 
             batch = ((u, y), outputs, idx_coord)
             params = {}
 
             loss_value = loss(
-                params, batch, mock_branch_net, mock_operator_net, apply_adaptive_weights=False
+                params,
+                batch,
+                mock_branch_net,
+                mock_operator_net,
+                apply_adaptive_weights=False,
             )
 
             assert loss_value.shape == ()
@@ -127,13 +145,19 @@ class TestLossFunctions:
             u = jnp.ones((batch_size, input_dim))
             y = jnp.ones((batch_size, coord_batch_size, coord_dim))
             outputs = jnp.ones((batch_size, coord_batch_size))
-            idx_coord = jnp.arange(coord_batch_size * batch_size).reshape(batch_size, coord_batch_size)
+            idx_coord = jnp.arange(coord_batch_size * batch_size).reshape(
+                batch_size, coord_batch_size
+            )
 
             batch = ((u, y), outputs, idx_coord)
             params = {}
 
             loss_value = loss(
-                params, batch, mock_branch_net, mock_operator_net, apply_adaptive_weights=False
+                params,
+                batch,
+                mock_branch_net,
+                mock_operator_net,
+                apply_adaptive_weights=False,
             )
 
             # Loss must always be scalar

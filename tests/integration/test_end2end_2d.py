@@ -8,7 +8,6 @@
 # ==============================================================================
 """End-to-end integration test for 2D acoustic wave propagation."""
 
-
 import h5py
 import jax.numpy as jnp
 import numpy as np
@@ -57,9 +56,10 @@ def create_synthetic_2d_acoustic_data(filepath, nx=15, ny=15, nt=15):
 
     # Create initial condition (Gaussian)
     umesh = np.column_stack([mesh[:, 0], mesh[:, 1], np.zeros(n_mesh)])
-    distances = np.sqrt((umesh[:, 0] - source_pos[0]) ** 2 +
-                       (umesh[:, 1] - source_pos[1]) ** 2)
-    upressures = 2.0 * np.exp(-distances ** 2 / sigma0 ** 2)
+    distances = np.sqrt(
+        (umesh[:, 0] - source_pos[0]) ** 2 + (umesh[:, 1] - source_pos[1]) ** 2
+    )
+    upressures = 2.0 * np.exp(-(distances**2) / sigma0**2)
 
     # Create pressure field (simple analytical wave propagation)
     pressures = np.zeros((nt, n_mesh), dtype=np.float32)
@@ -272,6 +272,7 @@ class TestEnd2End2D:
 
         # Count parameters
         import jax
+
         num_params = sum(x.size for x in jax.tree_util.tree_leaves(model.params))
         print(f"  Number of parameters: {num_params}")
 
@@ -433,4 +434,6 @@ class TestEnd2End2D:
                 )
                 assert jnp.isfinite(loss_value)
 
-            print(f"  Batch config ({batch_branch}, {batch_coord}) completed successfully")
+            print(
+                f"  Batch config ({batch_branch}, {batch_coord}) completed successfully"
+            )

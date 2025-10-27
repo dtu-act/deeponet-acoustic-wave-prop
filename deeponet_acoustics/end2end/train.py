@@ -104,7 +104,7 @@ def train(settings_dict: dict[str, Any]):
     datasetInfo(
         metadata, metadata_val, training.batch_size_coord, training.batch_size_branch
     )
-    
+
     # setup network
     input_example = next(iter(dataloader))[0][1]
     in_tn = input_example.shape[-1]

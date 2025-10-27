@@ -21,11 +21,11 @@ import numpy as np
 def run_domain_decomposition(input_path, output_path):
     """
     Process all H5 files in input directory for domain decomposition.
-    
+
     Converts full dome acoustic simulation data to quarter dome by extracting
     a specific spatial domain. Copies simulation parameters and processes
     all H5 files found in the input directory.
-    
+
     Args:
         input_path: Directory containing H5 files to process
         output_path: Directory where processed files will be saved
@@ -38,7 +38,8 @@ def run_domain_decomposition(input_path, output_path):
     source_settings_path = os.path.join(input_path, "simulation_parameters.json")
     if Path(source_settings_path).exists():
         shutil.copy(
-            source_settings_path, os.path.join(output_path, "simulation_parameters.json")
+            source_settings_path,
+            os.path.join(output_path, "simulation_parameters.json"),
         )
 
     filenamesH5 = IO.pathsToFileType(input_path, ".h5")
@@ -67,16 +68,19 @@ def run_domain_decomposition(input_path, output_path):
         )
         print(f"written file: {path_to_new_filename}\n")
 
-def extract_domain_subdomain(path_data_in, path_data_out, domain_extract, dtype=np.float16):
+
+def extract_domain_subdomain(
+    path_data_in, path_data_out, domain_extract, dtype=np.float16
+):
     """
     Extract a specific spatial domain from 3D acoustic simulation data.
-    
+
     Filters mesh points and corresponding pressure data to only include
     points within the specified domain boundaries.
-    
+
     Args:
         path_data_in: Input H5 file path
-        path_data_out: Output H5 file path  
+        path_data_out: Output H5 file path
         domain_extract: List of [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
         dtype: Output data type for pressure arrays (default: np.float16)
     """
@@ -107,16 +111,25 @@ def extract_domain_subdomain(path_data_in, path_data_out, domain_extract, dtype=
             pressures_new.attrs.create("time_steps", time_steps, dtype=np.float32)
             umesh_new.attrs.create("umesh_shape", ushape, dtype=np.float32)
 
+
 if __name__ == "__main__":
     """
     Example usage:
     input_path = "/work3/nibor/1TB/libP/bilbao_1000hz_p4_5ppw_srcpos5_val/"
     output_path = "/work3/nibor/1TB/libP/bilbao_1000hz_p4_5ppw_srcpos5_1stquad_val/"
     """
-    parser = argparse.ArgumentParser(description='Extract specific spatial domain from 3D H5 files for domain decomposition')
-    parser.add_argument('--input_dir', required=True, help='Directory containing H5 files to process')
-    parser.add_argument('--output_dir', required=True, help='Directory where processed files will be saved')
-    
+    parser = argparse.ArgumentParser(
+        description="Extract specific spatial domain from 3D H5 files for domain decomposition"
+    )
+    parser.add_argument(
+        "--input_dir", required=True, help="Directory containing H5 files to process"
+    )
+    parser.add_argument(
+        "--output_dir",
+        required=True,
+        help="Directory where processed files will be saved",
+    )
+
     args = parser.parse_args()
-    
+
     run_domain_decomposition(args.input_dir, args.output_dir)

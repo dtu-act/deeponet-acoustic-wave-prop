@@ -19,9 +19,7 @@ def getNearestFromCoordinates(grid, coords):
         coord_indxs = []
 
         for j_recv in range(N_recvs):
-            indx = np.sum(
-                np.abs(grid - coords[i_src][j_recv]), 1
-            ).argmin()
+            indx = np.sum(np.abs(grid - coords[i_src][j_recv]), 1).argmin()
             coord_indxs.append(indx)
 
         r0.append(grid[coord_indxs].tolist())
