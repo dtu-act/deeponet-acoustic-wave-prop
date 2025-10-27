@@ -11,7 +11,7 @@ import shutil
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Dict, List, TypeAlias
+from typing import Callable, TypeAlias
 
 import numpy as np
 
@@ -121,10 +121,10 @@ class Physics:
 class Domain:
     spatial_dimension: int
 
-    Xbounds: List[List[float]]
+    Xbounds: list[list[float]]
     tmax: float
 
-    nX: List[List[int]]
+    nX: list[list[int]]
     nt: int
 
     def __init__(self, Xbounds, tmax, dt, dx):
@@ -218,18 +218,18 @@ NetworkArchitecture: TypeAlias = MLPArchitecture | ResNetArchitecture
 class EvaluationSettings:
     model_dir: str
     data_path: str
-    receiver_pos: List[object]
+    receiver_pos: np.ndarray
     tmax: float
     num_srcs: int
 
     snap_to_grid: bool
-    source_position_override: List[object]
+    source_position_override: np.ndarray
     write_full_wave_field: bool
     write_ir_wav: bool
     write_ir_plots: bool
     write_ir_animations: bool
 
-    def __init__(self, settings: Dict, num_srcs: int = -1):
+    def __init__(self, settings: dict, num_srcs: int = -1):
         key_recv_pos = "receiver_positions_all_sources"
         key_recv_groups = "receiver_position_groups"
         key_src_pos = "source_positions"
@@ -304,7 +304,7 @@ class EvaluationSettings:
         self.write_ir_plots = settings["write_ir_plots"]
         self.write_ir_animations = settings["write_ir_animations"]
 
-    def parseReceiverGroups(self, receiver_keys: List, receivers: Dict) -> List[object]:
+    def parseReceiverGroups(self, receiver_keys: list, receivers: dict) -> np.ndarray:
         receiver_pos = np.empty(len(receiver_keys), dtype=object)
         for i_src in range(len(receiver_keys)):
             # the receiver positions are located in another entry in the JSON file with the key inside 'recvs'

@@ -27,10 +27,10 @@ def downsample_2d_ppw(
 ):
     """
     Convert 2D H5 data from high spatial/temporal resolutions to lower resolutions.
-    
+
     This function downsamples MATLAB-generated 2D acoustic simulation data by reducing
     the points per wavelength (PPW) in spatial, temporal, and uniform grid dimensions.
-    
+
     Args:
         path_data_in: Input H5 file path with high resolution data
         path_data_out: Output H5 file path for downsampled data
@@ -41,10 +41,10 @@ def downsample_2d_ppw(
         dtype: Output data type (default: np.float32)
         indices_p: Pre-defined spatial indices to use (optional)
         indices_t: Pre-defined temporal indices to use (optional)
-        
+
     Returns:
         np.ndarray: Downsampled time steps array
-        
+
     Raises:
         AssertionError: If upsampling is attempted or invalid parameters provided
     """
@@ -221,6 +221,7 @@ def downsample_2d_ppw(
 
     return time_steps
 
+
 if __name__ == "__main__":
     """
     Example usage:
@@ -234,14 +235,40 @@ if __name__ == "__main__":
     base_path = "/work3/nibor/1TB/deeponet/input_1D_2D/"
     filepath_in = "rect2x2_freq_indep_ppw265_train_orig.h5"    
     """
-    parser = argparse.ArgumentParser(description='Downsample 2D H5 data by reducing points per wavelength')
-    parser.add_argument('--base_path', required=True, help='Base path to data')
-    parser.add_argument('--input_file', required=True, help='Input H5 file path with high resolution data')
-    parser.add_argument('--uprune_factor', type=int, default=1, help='Factor to downsample uniform grid (default: 1)')
-    parser.add_argument('--p_ppw', type=int, default=6, help='Target points per wavelength for spatial dimension (default: 6)')
-    parser.add_argument('--t_ppw', type=int, default=2, help='Target points per wavelength for temporal dimension (default: 2)')    
-    parser.add_argument('--dtype', default='float32', choices=['float16', 'float32'], help='Output data type (default: float32)')
-    
+    parser = argparse.ArgumentParser(
+        description="Downsample 2D H5 data by reducing points per wavelength"
+    )
+    parser.add_argument("--base_path", required=True, help="Base path to data")
+    parser.add_argument(
+        "--input_file",
+        required=True,
+        help="Input H5 file path with high resolution data",
+    )
+    parser.add_argument(
+        "--uprune_factor",
+        type=int,
+        default=1,
+        help="Factor to downsample uniform grid (default: 1)",
+    )
+    parser.add_argument(
+        "--p_ppw",
+        type=int,
+        default=6,
+        help="Target points per wavelength for spatial dimension (default: 6)",
+    )
+    parser.add_argument(
+        "--t_ppw",
+        type=int,
+        default=2,
+        help="Target points per wavelength for temporal dimension (default: 2)",
+    )
+    parser.add_argument(
+        "--dtype",
+        default="float32",
+        choices=["float16", "float32"],
+        help="Output data type (default: float32)",
+    )
+
     args = parser.parse_args()
 
     src_density_fact = (
