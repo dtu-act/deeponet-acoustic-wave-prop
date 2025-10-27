@@ -35,7 +35,7 @@ dependencies = [
 
 [project.optional-dependencies]
 cuda12 = [
-    "jax[cuda12]==0.7.2",
+    "jax[local_cuda12]==0.7.2",
     "jaxlib==0.7.2",
 ]
 test = [
