@@ -296,6 +296,7 @@ class TestUPressures:
 
     def test_calculate_u_pressure_minmax(self):
         """Test basic min/max calculation with mock datasets."""
+
         # Create mock datasets with known min/max values
         class MockDataset:
             def __init__(self, data):
