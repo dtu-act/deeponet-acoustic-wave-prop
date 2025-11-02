@@ -183,8 +183,8 @@ class DataXdmf(DataInterface):
             )
 
         if norm_data:
-            self.mesh = self.normalizeSpatial(self.mesh)
-            self.tsteps = self.normalizeTemporal(self.tsteps)
+            self.mesh = self.normalize_spatial(self.mesh)
+            self.tsteps = self.normalize_temporal(self.tsteps)
 
         self.tt = np.repeat(self.tsteps, self.mesh.shape[0])
 
@@ -208,19 +208,19 @@ class DataXdmf(DataInterface):
 
     # --- required abstract properties implemented ---
     @property
-    def Pmesh(self):
+    def P_mesh(self):
         """Total number of mesh points."""
         return self.mesh.shape[0]
 
     @property
     def P(self):
         """Total number of time/space points."""
-        return self.Pmesh * len(self.tsteps)
+        return self.P_mesh * len(self.tsteps)
 
-    def normalizeSpatial(self, data):
+    def normalize_spatial(self, data):
         return _normalize_spatial(data, self.xmin, self.xmax)
 
-    def normalizeTemporal(self, data):
+    def normalize_temporal(self, data):
         return _normalize_temporal(data, self.xmin, self.xmax)
 
     def u_pressures(self, idx: int) -> np.ndarray:
@@ -298,8 +298,8 @@ class DataH5Compact(DataInterface):
             self.tsteps = self.tsteps * t_norm
 
             if self.normalize_data:
-                self.mesh = self.normalizeSpatial(self.mesh)
-                self.tsteps = self.normalizeTemporal(self.tsteps)
+                self.mesh = self.normalize_spatial(self.mesh)
+                self.tsteps = self.normalize_temporal(self.tsteps)
 
         self.tt = np.repeat(self.tsteps, self.mesh.shape[0])
         self.N = len(filenamesH5)
@@ -321,30 +321,30 @@ class DataH5Compact(DataInterface):
 
     # --- required abstract properties implemented ---
     @property
-    def Pmesh(self):
+    def P_mesh(self):
         """Total number of mesh points."""
         return self.mesh.shape[0]
 
     @property
     def P(self):
         """Total number of time/space points."""
-        return self.Pmesh * len(self.tsteps)
+        return self.P_mesh * len(self.tsteps)
 
     @property
     def xxyyzztt(self):
         xxyyzz = np.tile(self.mesh, (len(self.tsteps), 1))
         return np.hstack((xxyyzz, self.tt.reshape(-1, 1)))
 
-    def normalizeSpatial(self, data):
+    def normalize_spatial(self, data):
         return _normalize_spatial(data, self.xmin, self.xmax)
 
-    def normalizeTemporal(self, data):
+    def normalize_temporal(self, data):
         return _normalize_temporal(data, self.xmin, self.xmax)
 
-    def denormalizeSpatial(self, data):
+    def denormalize_spatial(self, data):
         return _denormalize_spatial(data, self.xmin, self.xmax)
 
-    def denormalizeTemporal(self, data):
+    def denormalize_temporal(self, data):
         return _denormalize_temporal(data, self.xmin, self.xmax)
 
     def u_pressures(self, idx: int) -> np.ndarray:
@@ -412,7 +412,6 @@ class DataSourceOnly(DataInterface):
         flatten_ic: bool = True,
         data_prune: int = 1,
         norm_data: bool = False,
-        p_minmax: tuple[float, float] = (-2.0, 2.0),
     ) -> None:
         self.data_prune = data_prune
         self._normalize_data = norm_data
@@ -425,6 +424,8 @@ class DataSourceOnly(DataInterface):
         self.tag_ufield = "/upressures"
 
         filenamesH5 = IO.pathsToFileType(data_path, ".h5", exclude="rectilinear")
+
+        gauss_amplitude = 1.0
 
         with h5py.File(filenamesH5[0]) as r:
             self.mesh = np.array(r[tag_mesh][:: self.data_prune])
@@ -449,8 +450,8 @@ class DataSourceOnly(DataInterface):
             self.tsteps = tsteps * t_norm
 
             if self._normalize_data:
-                self.mesh = self.normalizeSpatial(self.mesh)
-                self.tsteps = self.normalizeTemporal(self.tsteps)
+                self.mesh = self.normalize_spatial(self.mesh)
+                self.tsteps = self.normalize_temporal(self.tsteps)
 
             gaussianSrc = lambda x, y, z, xyz0, sigma, ampl: ampl * np.exp(
                 -((x - xyz0[0]) ** 2 + (y - xyz0[1]) ** 2 + (z - xyz0[2]) ** 2)
@@ -470,7 +471,7 @@ class DataSourceOnly(DataInterface):
                     umesh_obj[:, 2],
                     x0,
                     sigma0,
-                    p_minmax[1],
+                    gauss_amplitude,
                 )
                 self.datasets.append(
                     DatasetH5Mock({self.tag_ufield: ic_field, "source_position": x0})
@@ -484,14 +485,14 @@ class DataSourceOnly(DataInterface):
         self.tt = np.repeat(self.tsteps, self.mesh.shape[0])
 
     @property
-    def Pmesh(self) -> int:
+    def P_mesh(self) -> int:
         """Total number of mesh points."""
         return self.mesh.shape[0]
 
     @property
     def P(self) -> int:
         """Total number of time/space points."""
-        return self.Pmesh * len(self.tsteps)
+        return self.P_mesh * len(self.tsteps)
 
     @property
     def xmin(self) -> float:
@@ -511,16 +512,16 @@ class DataSourceOnly(DataInterface):
         xxyyzz = np.tile(self.mesh, (len(self.tsteps), 1))
         return np.hstack((xxyyzz, self.tt.reshape(-1, 1)))
 
-    def normalizeSpatial(self, data: np.ndarray[float]) -> np.ndarray[float]:
+    def normalize_spatial(self, data: np.ndarray[float]) -> np.ndarray[float]:
         return _normalize_spatial(data, self._xmin, self._xmax)
 
-    def normalizeTemporal(self, data: np.ndarray[float]) -> np.ndarray[float]:
+    def normalize_temporal(self, data: np.ndarray[float]) -> np.ndarray[float]:
         return _normalize_temporal(data, self._xmin, self._xmax)
 
-    def denormalizeSpatial(self, data: np.ndarray[float]) -> np.ndarray[float]:
+    def denormalize_spatial(self, data: np.ndarray[float]) -> np.ndarray[float]:
         return _denormalize_spatial(data, self._xmin, self._xmax)
 
-    def denormalizeTemporal(self, data: np.ndarray[float]) -> np.ndarray[float]:
+    def denormalize_temporal(self, data: np.ndarray[float]) -> np.ndarray[float]:
         return _denormalize_temporal(data, self._xmin, self._xmax)
 
     def u_pressures(self, idx: int) -> np.ndarray:
@@ -540,17 +541,12 @@ class DataSourceOnly(DataInterface):
 
 
 class DatasetStreamer(Dataset):
-    Pmesh: int
+    P_mesh: int
     P: int
     batch_size_coord: int
-
     data: DataInterface
-    p_minmax: tuple[float, float]
-
     itercount: itertools.count
-
     __y_feat_extract_fn = Callable[[list], list]
-
     total_time = 0
 
     @property
@@ -558,21 +554,18 @@ class DatasetStreamer(Dataset):
         return self.data.N
 
     @property
-    def Pmesh(self):
+    def P_mesh(self):
         """Total number of mesh points."""
         return self.data.mesh.shape[0]
 
     @property
     def P(self):
         """Total number of time/space points."""
-        return self.Pmesh * self.data.tsteps.shape[0]
+        return self.P_mesh * self.data.tsteps.shape[0]
 
-    def __init__(
-        self, data, batch_size_coord=-1, y_feat_extract_fn=None, p_minmax=(-2.0, 2.0)
-    ):
+    def __init__(self, data, batch_size_coord=-1, y_feat_extract_fn=None):
         # batch_size_coord: set to -1 if full dataset should be used (e.g. for validation data)
         self.data = data
-        self.p_minmax = p_minmax
 
         self.batch_size_coord = (
             batch_size_coord if batch_size_coord <= self.P else self.P
@@ -601,7 +594,7 @@ class DatasetStreamer(Dataset):
         end_time_0 = time.perf_counter()
         self.total_time += end_time_0 - start_time_0
 
-        xxyyzz = self.data.mesh[np.mod(indxs_coord, self.data.Pmesh), :]
+        xxyyzz = self.data.mesh[np.mod(indxs_coord, self.data.P_mesh), :]
         tt = self.data.tt[indxs_coord].reshape(-1, 1)
         y = self.__y_feat_extract_fn(np.hstack((xxyyzz, tt)))
 
@@ -615,7 +608,7 @@ class DatasetStreamer(Dataset):
         elif self.data.simulationDataType == SimulationDataType.XDMF:
             s = np.empty((self.P), dtype=jnp.float32)
             for j in range(num_tsteps):
-                s[j * self.data.Pmesh : (j + 1) * self.Pmesh] = dataset[
+                s[j * self.data.P_mesh : (j + 1) * self.P_mesh] = dataset[
                     self.data.tags_field[j]
                 ][:: self.data.data_prune]
             s = s[indxs_coord]
@@ -626,7 +619,7 @@ class DatasetStreamer(Dataset):
 
         # normalize
         x0 = (
-            self.data.normalizeSpatial(dataset["source_position"][:])
+            self.data.normalize_spatial(dataset["source_position"][:])
             if "source_position" in dataset
             else []
         )
@@ -635,7 +628,7 @@ class DatasetStreamer(Dataset):
         return inputs, jnp.asarray(s), indxs_coord, x0
 
 
-def getNumberOfSources(data_path: str):
+def get_number_of_sources(data_path: str):
     return len(IO.pathsToFileType(data_path, ".h5", exclude="rectilinear"))
 
 

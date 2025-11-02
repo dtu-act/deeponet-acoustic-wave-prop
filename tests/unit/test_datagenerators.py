@@ -38,7 +38,7 @@ class TestDataH5Compact:
         assert data.mesh.shape[1] == 2  # 2D data
         assert len(data.datasets) == len(files)
         assert data.P > 0
-        assert data.Pmesh > 0
+        assert data.P_mesh > 0
 
     def test_mesh_properties(self, mock_h5_dataset_2d):
         """Test mesh properties and dimensions."""
@@ -47,8 +47,8 @@ class TestDataH5Compact:
         data = DataH5Compact(str(data_path), flatten_ic=True)
 
         assert data.mesh.ndim == 2
-        assert data.Pmesh == data.mesh.shape[0]
-        assert data.P == data.Pmesh * len(data.tsteps)
+        assert data.P_mesh == data.mesh.shape[0]
+        assert data.P == data.P_mesh * len(data.tsteps)
         assert len(data.tt) == data.P
 
     def test_data_pruning(self, mock_h5_dataset_2d):
@@ -59,8 +59,8 @@ class TestDataH5Compact:
         data_pruned = DataH5Compact(str(data_path), data_prune=2)
 
         # Pruned data should have fewer mesh points
-        assert data_pruned.Pmesh < data_full.Pmesh
-        assert data_pruned.Pmesh == (data_full.Pmesh + 1) // 2
+        assert data_pruned.P_mesh < data_full.P_mesh
+        assert data_pruned.P_mesh == (data_full.P_mesh + 1) // 2
 
     def test_time_truncation(self, mock_h5_dataset_2d):
         """Test time truncation with tmax parameter."""
@@ -103,13 +103,13 @@ class TestDataH5Compact:
 
         # Test spatial normalization
         test_coords = np.array([[data.xmin, data.xmin], [data.xmax, data.xmax]])
-        normalized = data.normalizeSpatial(test_coords)
+        normalized = data.normalize_spatial(test_coords)
 
         # Check boundaries map to [-1, 1]
         assert np.allclose(normalized, [[-1, -1], [1, 1]])
 
         # Test round-trip
-        denormalized = data.denormalizeSpatial(normalized)
+        denormalized = data.denormalize_spatial(normalized)
         assert np.allclose(test_coords, denormalized)
 
     def test_temporal_normalization_functions(self, mock_h5_dataset_2d):
@@ -120,10 +120,10 @@ class TestDataH5Compact:
 
         # Test temporal normalization
         test_times = np.array([0.0, 1.0, 2.0])
-        normalized = data.normalizeTemporal(test_times)
+        normalized = data.normalize_temporal(test_times)
         assert np.min(normalized.flatten()) == 0
 
-        denormalized = data.denormalizeTemporal(normalized)
+        denormalized = data.denormalize_temporal(normalized)
 
         # Check round-trip
         assert np.allclose(test_times, denormalized)
@@ -173,7 +173,7 @@ class TestDatasetStreamer:
         assert len(dataset) == len(files)
         assert dataset.N == len(files)
         assert dataset.P == data.P
-        assert dataset.Pmesh == data.Pmesh
+        assert dataset.P_mesh == data.P_mesh
 
     def test_getitem(self, mock_h5_dataset_2d):
         """Test getting individual items from dataset."""

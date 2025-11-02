@@ -20,7 +20,7 @@ from deeponet_acoustics.datahandlers.datagenerators import (
     DataH5Compact,
     DatasetStreamer,
     DataSourceOnly,
-    getNumberOfSources,
+    get_number_of_sources,
 )
 from deeponet_acoustics.models.datastructures import (
     EvaluationSettings,
@@ -48,7 +48,7 @@ def inference(
         settings_eval = EvaluationSettings(settings_eval_dict)
     else:
         # we read number of sources from filesystem when not explicitly set
-        num_srcs = getNumberOfSources(settings_eval_dict["validation_data_dir"])
+        num_srcs = get_number_of_sources(settings_eval_dict["validation_data_dir"])
         settings_eval = EvaluationSettings(settings_eval_dict, num_srcs)
 
     tmax = settings_eval.tmax
@@ -136,16 +136,16 @@ def inference(
     xxyyzztt = metadata.xxyyzztt
     y_in = y_feat_fn(xxyyzztt)
 
-    xxyyzz_phys = metadata.denormalizeSpatial(xxyyzztt[:, 0:3])
-    mesh_phys = metadata.denormalizeSpatial(metadata.mesh)
-    tsteps_phys = metadata.denormalizeTemporal(metadata.tsteps / c_phys)
+    xxyyzz_phys = metadata.denormalize_spatial(xxyyzztt[:, 0:3])
+    mesh_phys = metadata.denormalize_spatial(metadata.mesh)
+    tsteps_phys = metadata.denormalize_temporal(metadata.tsteps / c_phys)
 
     num_srcs = dataset.N
 
     ############## WRITE FULL WAVE FIELD ##############
     if settings_eval.write_full_wave_field:
-        S_pred_srcs = np.empty((num_srcs, tdim, dataset.Pmesh), dtype=float)
-        S_test_srcs = np.empty((num_srcs, tdim, dataset.Pmesh), dtype=float)
+        S_pred_srcs = np.empty((num_srcs, tdim, dataset.P_mesh), dtype=float)
+        S_test_srcs = np.empty((num_srcs, tdim, dataset.P_mesh), dtype=float)
 
         for i_src in range(num_srcs):
             (u_test_i, *_), s_test_i, _, x0 = dataset[i_src]
@@ -159,7 +159,7 @@ def inference(
             S_pred_srcs[i_src, :, :] = np.asarray(s_pred_i)
             S_test_srcs[i_src, :, :] = np.asarray(s_test_i).reshape(tdim, -1)
 
-            x0 = metadata.denormalizeSpatial(x0)
+            x0 = metadata.denormalize_spatial(x0)
 
             IO.writeTetraXdmf(
                 mesh_phys,
@@ -193,11 +193,11 @@ def inference(
         ir_ref_srcs = []
 
     for i_src in range(num_srcs):
-        r0_list_norm = metadata.normalizeSpatial(r0_list[i_src])
+        r0_list_norm = metadata.normalize_spatial(r0_list[i_src])
 
         (u_test_i, *_), s_test_i, _, x0 = dataset[i_src]
 
-        x0 = metadata.denormalizeSpatial(x0)
+        x0 = metadata.denormalize_spatial(x0)
         x0_srcs.append(x0)
 
         y_rcvs = np.repeat(np.array(r0_list_norm), len(metadata.tsteps), axis=0)
