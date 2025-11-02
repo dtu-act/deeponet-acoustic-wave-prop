@@ -53,6 +53,62 @@ def _calculate_u_pressure_minmax(
     return p_min, p_max
 
 
+def _normalize_spatial(data: np.ndarray, xmin: float, xmax: float) -> np.ndarray:
+    """Normalize spatial coordinates to [-1, 1] range.
+
+    Args:
+        data: Data to normalize
+        xmin: Minimum value for normalization
+        xmax: Maximum value for normalization
+
+    Returns:
+        Normalized data in [-1, 1] range
+    """
+    return 2 * (data - xmin) / (xmax - xmin) - 1
+
+
+def _normalize_temporal(data: np.ndarray, xmin: float, xmax: float) -> np.ndarray:
+    """Normalize temporal coordinates.
+
+    Args:
+        data: Data to normalize
+        xmin: Minimum spatial value for normalization
+        xmax: Maximum spatial value for normalization
+
+    Returns:
+        Normalized temporal data
+    """
+    return data / (xmax - xmin) / 2
+
+
+def _denormalize_spatial(data: np.ndarray, xmin: float, xmax: float) -> np.ndarray:
+    """Denormalize spatial coordinates from [-1, 1] range.
+
+    Args:
+        data: Normalized data to denormalize
+        xmin: Minimum value for denormalization
+        xmax: Maximum value for denormalization
+
+    Returns:
+        Denormalized spatial data
+    """
+    return (data + 1) / 2 * (xmax - xmin) + xmin
+
+
+def _denormalize_temporal(data: np.ndarray, xmin: float, xmax: float) -> np.ndarray:
+    """Denormalize temporal coordinates.
+
+    Args:
+        data: Normalized data to denormalize
+        xmin: Minimum spatial value for denormalization
+        xmax: Maximum spatial value for denormalization
+
+    Returns:
+        Denormalized temporal data
+    """
+    return data * 2 * (xmax - xmin)
+
+
 class DataInterface(ABC):
     # Required attributes that concrete classes must define
     simulationDataType: SimulationDataType
@@ -162,19 +218,16 @@ class DataXdmf(DataInterface):
         return self.Pmesh * len(self.tsteps)
 
     def normalizeSpatial(self, data):
-        return 2 * (data - self.xmin) / (self.xmax - self.xmin) - 1
+        return _normalize_spatial(data, self.xmin, self.xmax)
 
     def normalizeTemporal(self, data):
-        return data / (self.xmax - self.xmin) / 2
+        return _normalize_temporal(data, self.xmin, self.xmax)
 
     def u_pressures(self, idx: int) -> np.ndarray:
         """Get normalized u pressures for a given dataset index."""
         dataset = self.datasets[idx]
-        u_norm = (
-            2
-            * (dataset[self.tag_ufield][:] - self._u_p_min)
-            / (self._u_p_max - self._u_p_min)
-            - 1
+        u_norm = _normalize_spatial(
+            dataset[self.tag_ufield][:], self._u_p_min, self._u_p_max
         )
         return jnp.reshape(u_norm, self.u_shape)
 
@@ -283,25 +336,22 @@ class DataH5Compact(DataInterface):
         return np.hstack((xxyyzz, self.tt.reshape(-1, 1)))
 
     def normalizeSpatial(self, data):
-        return 2 * (data - self.xmin) / (self.xmax - self.xmin) - 1
+        return _normalize_spatial(data, self.xmin, self.xmax)
 
     def normalizeTemporal(self, data):
-        return data / (self.xmax - self.xmin) / 2
+        return _normalize_temporal(data, self.xmin, self.xmax)
 
     def denormalizeSpatial(self, data):
-        return (data + 1) / 2 * (self.xmax - self.xmin) + self.xmin
+        return _denormalize_spatial(data, self.xmin, self.xmax)
 
     def denormalizeTemporal(self, data):
-        return data * 2 * (self.xmax - self.xmin)
+        return _denormalize_temporal(data, self.xmin, self.xmax)
 
     def u_pressures(self, idx: int) -> np.ndarray:
         """Get normalized u pressures for a given dataset index."""
         dataset = self.datasets[idx]
-        u_norm = (
-            2
-            * (dataset[self.tag_ufield][:] - self._u_p_min)
-            / (self._u_p_max - self._u_p_min)
-            - 1
+        u_norm = _normalize_spatial(
+            dataset[self.tag_ufield][:], self._u_p_min, self._u_p_max
         )
         return jnp.reshape(u_norm, self.u_shape)
 
@@ -462,25 +512,22 @@ class DataSourceOnly(DataInterface):
         return np.hstack((xxyyzz, self.tt.reshape(-1, 1)))
 
     def normalizeSpatial(self, data: np.ndarray[float]) -> np.ndarray[float]:
-        return 2 * (data - self._xmin) / (self._xmax - self._xmin) - 1
+        return _normalize_spatial(data, self._xmin, self._xmax)
 
     def normalizeTemporal(self, data: np.ndarray[float]) -> np.ndarray[float]:
-        return data / (self._xmax - self._xmin) / 2
+        return _normalize_temporal(data, self._xmin, self._xmax)
 
     def denormalizeSpatial(self, data: np.ndarray[float]) -> np.ndarray[float]:
-        return (data + 1) / 2 * (self._xmax - self._xmin) + self._xmin
+        return _denormalize_spatial(data, self._xmin, self._xmax)
 
     def denormalizeTemporal(self, data: np.ndarray[float]) -> np.ndarray[float]:
-        return data * 2 * (self._xmax - self._xmin)
+        return _denormalize_temporal(data, self._xmin, self._xmax)
 
     def u_pressures(self, idx: int) -> np.ndarray:
         """Get normalized u pressures for a given dataset index."""
         dataset = self.datasets[idx]
-        u_norm = (
-            2
-            * (dataset[self.tag_ufield] - self._u_p_min)
-            / (self._u_p_max - self._u_p_min)
-            - 1
+        u_norm = _normalize_spatial(
+            dataset[self.tag_ufield], self._u_p_min, self._u_p_max
         )
         return jnp.reshape(u_norm, self.u_shape)
 
