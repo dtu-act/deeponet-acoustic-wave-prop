@@ -23,79 +23,73 @@ from deeponet_acoustics.datahandlers.io import XdmfReader
 from deeponet_acoustics.models.datastructures import SimulationDataType
 
 
+def _calculate_u_pressure_minmax(
+    datasets: list, tag_ufield: str, max_samples: int = 500
+) -> tuple[float, float]:
+    """Calculate min and max pressure values from datasets.
+
+    Args:
+        datasets: List of datasets (h5py.File or mock objects)
+        tag_ufield: Tag/key for accessing pressure data in datasets
+        max_samples: Maximum number of samples to use for estimation (default: 500)
+
+    Returns:
+        Tuple of (p_min, p_max) as floats
+    """
+    num_samples = min(max_samples, len(datasets))
+    p_min_vals = []
+    p_max_vals = []
+
+    print(f"Estimating pressure min/max from {num_samples} samples...")
+    for i in range(num_samples):
+        upressures = datasets[i][tag_ufield][:]
+        p_min_vals.append(np.min(upressures))
+        p_max_vals.append(np.max(upressures))
+
+    p_min = float(np.min(p_min_vals))
+    p_max = float(np.max(p_max_vals))
+    print(f"Pressure range: [{p_min:.4f}, {p_max:.4f}]")
+
+    return p_min, p_max
+
+
 class DataInterface(ABC):
-    @property
-    @abstractmethod
-    def simulationDataType(self) -> SimulationDataType:
-        """Type of the simulation data."""
-        pass
+    # Required attributes that concrete classes must define
+    simulationDataType: SimulationDataType
+    datasets: list[h5py.File]
+    mesh: np.ndarray
+    tags_field: list[str]
+    tag_ufield: str
+    tt: np.ndarray
+    data_prune: int
+    N: int
+    u_shape: np.ndarray | list[int]
+    tsteps: np.ndarray
 
     @property
     @abstractmethod
-    def datasets(self) -> list[h5py.File]:
-        """list of h5py files."""
-        pass
-
-    @property
-    @abstractmethod
-    def mesh(self) -> np.ndarray:
-        """Mesh data (non-uniform)."""
-        pass
-
-    @property
-    @abstractmethod
-    def tags_field(self) -> list[str]:
-        """Field tags for time/coordinate inputs."""
-        pass
-
-    @property
-    @abstractmethod
-    def tag_ufield(self) -> str:
-        """Unique field tag for input function (uniformly distributed)."""
-        pass
-
-    @property
-    @abstractmethod
-    def tt(self) -> np.ndarray:
-        """Time values"""
-        pass
-
-    @property
-    @abstractmethod
-    def data_prune(self) -> int:
-        """Pruning parameter."""
-        pass
-
-    @property
-    @abstractmethod
-    def N(self) -> int:
-        """Number of sources."""
-        pass
-
-    @property
-    @abstractmethod
-    def u_shape(self) -> list[int]:
-        """Shape of the input function of the initial condition."""
-        pass
-
-    @property
-    @abstractmethod
-    def P(self) -> np.ndarray:
+    def P(self) -> int:
         """Total number of time/space points."""
         pass
 
-    @property
     @abstractmethod
-    def tsteps(self) -> np.ndarray:
-        """Time steps."""
+    def u_pressures(self, idx: int) -> np.ndarray:
+        """Get normalized u pressures for a given dataset index."""
         pass
 
 
 class DataXdmf(DataInterface):
     simulationDataType: SimulationDataType = SimulationDataType.XDMF
 
-    P: int
-    Pmesh: int
+    datasets: list[h5py.File]
+    mesh: np.ndarray
+    u_shape: list[int]
+    tsteps: np.ndarray
+    tt: np.ndarray
+    tags_field: list[str]
+    tag_ufield: str
+    data_prune: int
+    N: int
 
     xmin: float
     xmax: float
@@ -116,78 +110,47 @@ class DataXdmf(DataInterface):
 
         # NOTE: we assume meshes, tags, etc are the same across all xdmf datasets
         xdmf = XdmfReader(filenames_xdmf[0], tmax=tmax / t_norm)
-        self._tags_field = xdmf.tags_field
-        self._tag_ufield = xdmf.tag_ufield
-        self._data_prune = data_prune
-        self._tsteps = xdmf.tsteps * t_norm
+        self.tags_field = xdmf.tags_field
+        self.tag_ufield = xdmf.tag_ufield
+        self.data_prune = data_prune
+        self.tsteps = xdmf.tsteps * t_norm
 
         with h5py.File(xdmf.filenameH5) as r:
-            self._mesh = np.array(r[xdmf.tag_mesh][:: self._data_prune])
-            self.xmin, self.xmax = np.min(self._mesh), np.max(self._mesh)
+            self.mesh = np.array(r[xdmf.tag_mesh][:: self.data_prune])
+            self.xmin, self.xmax = np.min(self.mesh), np.max(self.mesh)
             umesh_obj = r[xdmf.tag_umesh]
             umesh = np.array(umesh_obj[:])
-            self._u_shape = (
+            self.u_shape = (
                 [len(umesh)]
                 if flatten_ic
                 else jnp.array(umesh_obj.attrs[xdmf.tag_ushape][:], dtype=int).tolist()
             )
 
         if norm_data:
-            self._mesh = self.normalizeSpatial(self._mesh)
-            self._tsteps = self.normalizeTemporal(self._tsteps)
+            self.mesh = self.normalizeSpatial(self.mesh)
+            self.tsteps = self.normalizeTemporal(self.tsteps)
 
-        self._tt = np.repeat(self._tsteps, self._mesh.shape[0])
+        self.tt = np.repeat(self.tsteps, self.mesh.shape[0])
 
-        self._datasets = []
+        self.datasets = []
         for i in range(0, min(MAXNUM_DATASETS, len(filenames_xdmf))):
             filename = filenames_xdmf[i]
             if Path(filename).exists():
                 xdmf = XdmfReader(filename, tmax / t_norm)
-                self._datasets.append(
+                self.datasets.append(
                     h5py.File(xdmf.filenameH5, "r")
                 )  # add file handles and keeps open
             else:
                 print(f"Could not be found (ignoring): {filename}")
 
-        self._N = len(self._datasets)
+        self.N = len(self.datasets)
+
+        # Calculate min and max pressure values from sampled datasets
+        self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
+            self.datasets, self.tag_ufield
+        )
 
     # --- required abstract properties implemented ---
-    @property
-    def datasets(self):
-        return self._datasets
-
-    @property
-    def mesh(self):
-        return self._mesh
-
-    @property
-    def u_shape(self):
-        return self._u_shape
-
-    @property
-    def tsteps(self):
-        return self._tsteps
-
-    @property
-    def tt(self):
-        return self._tt
-
-    @property
-    def tags_field(self):
-        return self._tags_field
-
-    @property
-    def tag_ufield(self):
-        return self._tag_ufield
-
-    @property
-    def data_prune(self):
-        return self._data_prune
-
-    @property
-    def N(self):
-        return self._N
-
     @property
     def Pmesh(self):
         """Total number of mesh points."""
@@ -196,7 +159,7 @@ class DataXdmf(DataInterface):
     @property
     def P(self):
         """Total number of time/space points."""
-        return self.Pmesh * self.tsteps.shape[0]
+        return self.Pmesh * len(self.tsteps)
 
     def normalizeSpatial(self, data):
         return 2 * (data - self.xmin) / (self.xmax - self.xmin) - 1
@@ -204,20 +167,38 @@ class DataXdmf(DataInterface):
     def normalizeTemporal(self, data):
         return data / (self.xmax - self.xmin) / 2
 
+    def u_pressures(self, idx: int) -> np.ndarray:
+        """Get normalized u pressures for a given dataset index."""
+        dataset = self.datasets[idx]
+        u_norm = (
+            2
+            * (dataset[self.tag_ufield][:] - self._u_p_min)
+            / (self._u_p_max - self._u_p_min)
+            - 1
+        )
+        return jnp.reshape(u_norm, self.u_shape)
+
     def __del__(self):
-        for dataset in self._datasets:
+        for dataset in self.datasets:
             dataset.close()
 
 
 class DataH5Compact(DataInterface):
     simulationDataType: SimulationDataType = SimulationDataType.H5COMPACT
 
-    P: int
-    Pmesh: int
+    datasets: list[h5py.File]
+    mesh: np.ndarray
+    u_shape: np.ndarray
+    tsteps: np.ndarray
+    tt: np.ndarray
+    tags_field: list[str]
+    tag_ufield: str
+    data_prune: int
+    N: int
+
     xmin: float
     xmax: float
     normalize_data: bool
-
     conn: np.ndarray
 
     # MAXNUM_DATASETS: SET TO E.G: 500 WHEN DEBUGGING ON MACHINES WITH LESS RESOURCES
@@ -232,7 +213,7 @@ class DataH5Compact(DataInterface):
         MAXNUM_DATASETS=sys.maxsize,
     ):
         filenamesH5 = IO.pathsToFileType(data_path, ".h5", exclude="rectilinear")
-        self._data_prune = data_prune
+        self.data_prune = data_prune
         self.normalize_data = norm_data
 
         # NOTE: we assume meshes, tags, etc are the same accross all xdmf datasets
@@ -240,83 +221,52 @@ class DataH5Compact(DataInterface):
         tag_conn = "/conn"
         tag_umesh = "/umesh"
         tag_ushape = "umesh_shape"
-        self._tags_field = ["/pressures"]
-        self._tag_ufield = "/upressures"
+        self.tags_field = ["/pressures"]
+        self.tag_ufield = "/upressures"
 
         with h5py.File(filenamesH5[0]) as r:
-            self._mesh = np.array(r[tag_mesh][:: self._data_prune])
+            self.mesh = np.array(r[tag_mesh][:: self.data_prune])
             self.conn = (
                 np.array(r[tag_conn])
-                if self._data_prune == 1 and tag_conn in r
+                if self.data_prune == 1 and tag_conn in r
                 else np.array([])
             )
-            self.xmin, self.xmax = np.min(self._mesh), np.max(self._mesh)
+            self.xmin, self.xmax = np.min(self.mesh), np.max(self.mesh)
 
             umesh_obj = r[tag_umesh]
             umesh = np.array(umesh_obj[:])
-            self._u_shape = (
+            self.u_shape = (
                 jnp.array([len(umesh)], dtype=int)
                 if flatten_ic
                 else jnp.array(umesh_obj.attrs[tag_ushape][:], dtype=int)
             )
-            self._tsteps = r[self._tags_field[0]].attrs["time_steps"]
-            self._tsteps = jnp.array([t for t in self._tsteps if t <= tmax / t_norm])
-            self._tsteps = self._tsteps * t_norm
+            self.tsteps = r[self.tags_field[0]].attrs["time_steps"]
+            self.tsteps = jnp.array([t for t in self.tsteps if t <= tmax / t_norm])
+            self.tsteps = self.tsteps * t_norm
 
             if self.normalize_data:
-                self._mesh = self.normalizeSpatial(self._mesh)
-                self._tsteps = self.normalizeTemporal(self._tsteps)
+                self.mesh = self.normalizeSpatial(self.mesh)
+                self.tsteps = self.normalizeTemporal(self.tsteps)
 
-        self._tt = np.repeat(self._tsteps, self._mesh.shape[0])
-        self._N = len(filenamesH5)
+        self.tt = np.repeat(self.tsteps, self.mesh.shape[0])
+        self.N = len(filenamesH5)
 
-        self._datasets = []
+        self.datasets = []
         for i in range(0, min(MAXNUM_DATASETS, len(filenamesH5))):
             filename = filenamesH5[i]
             if Path(filename).exists():
-                self._datasets.append(
+                self.datasets.append(
                     h5py.File(filename, "r")
                 )  # add file handles and keeps open
             else:
                 print(f"Could not be found (ignoring): {filename}")
 
+        # Calculate min and max pressure values from sampled datasets
+        self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
+            self.datasets, self.tag_ufield
+        )
+
     # --- required abstract properties implemented ---
-    @property
-    def datasets(self):
-        return self._datasets
-
-    @property
-    def mesh(self):
-        return self._mesh
-
-    @property
-    def u_shape(self):
-        return self._u_shape
-
-    @property
-    def tsteps(self):
-        return self._tsteps
-
-    @property
-    def tt(self):
-        return self._tt
-
-    @property
-    def tags_field(self):
-        return self._tags_field
-
-    @property
-    def tag_ufield(self):
-        return self._tag_ufield
-
-    @property
-    def data_prune(self):
-        return self._data_prune
-
-    @property
-    def N(self):
-        return self._N
-
     @property
     def Pmesh(self):
         """Total number of mesh points."""
@@ -325,7 +275,7 @@ class DataH5Compact(DataInterface):
     @property
     def P(self):
         """Total number of time/space points."""
-        return self.Pmesh * self.tsteps.shape[0]
+        return self.Pmesh * len(self.tsteps)
 
     @property
     def xxyyzztt(self):
@@ -344,8 +294,19 @@ class DataH5Compact(DataInterface):
     def denormalizeTemporal(self, data):
         return data * 2 * (self.xmax - self.xmin)
 
+    def u_pressures(self, idx: int) -> np.ndarray:
+        """Get normalized u pressures for a given dataset index."""
+        dataset = self.datasets[idx]
+        u_norm = (
+            2
+            * (dataset[self.tag_ufield][:] - self._u_p_min)
+            / (self._u_p_max - self._u_p_min)
+            - 1
+        )
+        return jnp.reshape(u_norm, self.u_shape)
+
     def __del__(self):
-        for dataset in self._datasets:
+        for dataset in self.datasets:
             dataset.close()
 
 
@@ -380,6 +341,17 @@ class DataSourceOnly(DataInterface):
 
     simulationDataType: SimulationDataType = SimulationDataType.SOURCE_ONLY
 
+    datasets: list[h5py.File]
+    mesh: np.ndarray[float]
+    tags_field: list[str]
+    tag_ufield: str
+    tsteps: np.ndarray[float]
+    tt: np.ndarray[float]
+    N: int
+    u_shape: np.ndarray[np.int64]
+    conn: np.ndarray[np.int64]
+    data_prune: int
+
     def __init__(
         self,
         data_path: str,
@@ -392,55 +364,55 @@ class DataSourceOnly(DataInterface):
         norm_data: bool = False,
         p_minmax: tuple[float, float] = (-2.0, 2.0),
     ) -> None:
-        self._data_prune = data_prune
+        self.data_prune = data_prune
         self._normalize_data = norm_data
 
         tag_mesh = "/mesh"
         tag_conn = "/conn"
         tag_umesh = "/umesh"
         tag_ushape = "umesh_shape"
-        self._tags_field = ["/pressures"]
-        self._tag_ufield = "/upressures"
+        self.tags_field = ["/pressures"]
+        self.tag_ufield = "/upressures"
 
         filenamesH5 = IO.pathsToFileType(data_path, ".h5", exclude="rectilinear")
 
         with h5py.File(filenamesH5[0]) as r:
-            self._mesh = np.array(r[tag_mesh][:: self._data_prune])
-            self._conn = (
+            self.mesh = np.array(r[tag_mesh][:: self.data_prune])
+            self.conn = (
                 np.array(r[tag_conn])
-                if self._data_prune == 1 and tag_conn in r
+                if self.data_prune == 1 and tag_conn in r
                 else np.array([])
             )
             self._xmin, self._xmax = (
-                float(np.min(self._mesh)),
-                float(np.max(self._mesh)),
+                float(np.min(self.mesh)),
+                float(np.max(self.mesh)),
             )
 
             umesh_obj = r[tag_umesh]
             if flatten_ic:
-                self._u_shape = jnp.array([len(umesh_obj[:])], dtype=int)
+                self.u_shape = jnp.array([len(umesh_obj[:])], dtype=int)
             else:
-                self._u_shape = jnp.array(umesh_obj.attrs[tag_ushape][:], dtype=int)
+                self.u_shape = jnp.array(umesh_obj.attrs[tag_ushape][:], dtype=int)
 
-            tsteps = r[self._tags_field[0]].attrs["time_steps"]
+            tsteps = r[self.tags_field[0]].attrs["time_steps"]
             tsteps = jnp.array([t for t in tsteps if t <= tmax / t_norm])
-            self._tsteps = tsteps * t_norm
+            self.tsteps = tsteps * t_norm
 
             if self._normalize_data:
-                self._mesh = self.normalizeSpatial(self._mesh)
-                self._tsteps = self.normalizeTemporal(self._tsteps)
+                self.mesh = self.normalizeSpatial(self.mesh)
+                self.tsteps = self.normalizeTemporal(self.tsteps)
 
             gaussianSrc = lambda x, y, z, xyz0, sigma, ampl: ampl * np.exp(
                 -((x - xyz0[0]) ** 2 + (y - xyz0[1]) ** 2 + (z - xyz0[2]) ** 2)
                 / sigma**2
             )
 
-            self._datasets: list[h5py.File] = []
+            self.datasets: list[h5py.File] = []
             sigma0 = params.c / (np.pi * params.fmax / 2)
 
-            self._N = len(source_pos)
+            self.N = len(source_pos)
 
-            for i in range(self._N):
+            for i in range(self.N):
                 x0 = source_pos[i]
                 ic_field = gaussianSrc(
                     umesh_obj[:, 0],
@@ -450,39 +422,16 @@ class DataSourceOnly(DataInterface):
                     sigma0,
                     p_minmax[1],
                 )
-                self._datasets.append(
-                    DatasetH5Mock({self._tag_ufield: ic_field, "source_position": x0})
+                self.datasets.append(
+                    DatasetH5Mock({self.tag_ufield: ic_field, "source_position": x0})
                 )
 
-        self._tt = np.repeat(self._tsteps, self._mesh.shape[0])
+        # Calculate min and max pressure values from generated datasets
+        self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
+            self.datasets, self.tag_ufield, max_samples=self.N
+        )
 
-    @property
-    def datasets(self) -> list[h5py.File]:
-        return self._datasets
-
-    @property
-    def mesh(self) -> np.ndarray[float]:
-        return self._mesh
-
-    @property
-    def tags_field(self) -> list[str]:
-        return self._tags_field
-
-    @property
-    def tag_ufield(self) -> str:
-        return self._tag_ufield
-
-    @property
-    def tsteps(self) -> np.ndarray[float]:
-        return self._tsteps
-
-    @property
-    def tt(self) -> np.ndarray[float]:
-        return self._tt
-
-    @property
-    def N(self) -> int:
-        return self._N
+        self.tt = np.repeat(self.tsteps, self.mesh.shape[0])
 
     @property
     def Pmesh(self) -> int:
@@ -492,7 +441,7 @@ class DataSourceOnly(DataInterface):
     @property
     def P(self) -> int:
         """Total number of time/space points."""
-        return self.Pmesh * self.tsteps.shape[0]
+        return self.Pmesh * len(self.tsteps)
 
     @property
     def xmin(self) -> float:
@@ -505,14 +454,6 @@ class DataSourceOnly(DataInterface):
     @property
     def normalize_data(self) -> bool:
         return self._normalize_data
-
-    @property
-    def u_shape(self) -> np.ndarray[np.int64]:
-        return self._u_shape
-
-    @property
-    def conn(self) -> np.ndarray[np.int64]:
-        return self._conn
 
     @property
     def xxyyzztt(self) -> np.ndarray[float]:
@@ -532,8 +473,19 @@ class DataSourceOnly(DataInterface):
     def denormalizeTemporal(self, data: np.ndarray[float]) -> np.ndarray[float]:
         return data * 2 * (self._xmax - self._xmin)
 
+    def u_pressures(self, idx: int) -> np.ndarray:
+        """Get normalized u pressures for a given dataset index."""
+        dataset = self.datasets[idx]
+        u_norm = (
+            2
+            * (dataset[self.tag_ufield] - self._u_p_min)
+            / (self._u_p_max - self._u_p_min)
+            - 1
+        )
+        return jnp.reshape(u_norm, self.u_shape)
+
     def close(self) -> None:
-        for dataset in self._datasets:
+        for dataset in self.datasets:
             dataset.close()
 
     def __del__(self) -> None:
@@ -590,13 +542,7 @@ class DatasetStreamer(Dataset):
 
     def __getitem__(self, idx):
         dataset = self.data.datasets[idx]
-        u_norm = (
-            2
-            * (dataset[self.data.tag_ufield][:] - self.p_minmax[0])
-            / (self.p_minmax[1] - self.p_minmax[0])
-            - 1
-        )
-        u = jnp.reshape(u_norm, self.data.u_shape)
+        u = self.data.u_pressures(idx)
 
         start_time_0 = time.perf_counter()
         if self.batch_size_coord > 0:

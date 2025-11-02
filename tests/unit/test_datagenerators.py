@@ -15,6 +15,7 @@ import pytest
 from deeponet_acoustics.datahandlers.datagenerators import (
     DataH5Compact,
     DatasetStreamer,
+    _calculate_u_pressure_minmax,
     numpy_collate,
 )
 from deeponet_acoustics.models.datastructures import SimulationDataType
@@ -287,3 +288,63 @@ class TestNumpyCollate:
         assert isinstance(result, list)
         assert len(result) == 2
         assert isinstance(result[0], list)
+
+
+@pytest.mark.unit
+class TestUPressures:
+    """Test suite for u_pressures functionality."""
+
+    def test_calculate_u_pressure_minmax(self):
+        """Test basic min/max calculation with mock datasets."""
+        # Create mock datasets with known min/max values
+        class MockDataset:
+            def __init__(self, data):
+                self.data = {"/upressures": data}
+
+            def __getitem__(self, key):
+                return self.data[key]
+
+        # Create datasets with known ranges
+        datasets = [
+            MockDataset(np.array([-1.5, 0.0, 1.5])),
+            MockDataset(np.array([-2.0, 0.5, 2.0])),
+            MockDataset(np.array([-1.0, 0.0, 1.0])),
+        ]
+
+        p_min, p_max = _calculate_u_pressure_minmax(datasets, "/upressures")
+
+        assert p_min == -2.0
+        assert p_max == 2.0
+
+    def test_u_pressures_normalization(self, mock_h5_dataset_2d):
+        """Test that u_pressures returns properly normalized values."""
+        data_path, _ = mock_h5_dataset_2d
+
+        data = DataH5Compact(str(data_path))
+
+        # Get normalized pressures
+        u_norm = data.u_pressures(0)
+
+        # Should be normalized to [-1, 1]
+        assert np.all(u_norm >= -1.0)
+        assert np.all(u_norm <= 1.0)
+
+        # Check shape matches u_shape
+        assert u_norm.shape == tuple(data.u_shape)
+
+    def test_u_pressures_different_indices(self, mock_h5_dataset_2d):
+        """Test u_pressures with different dataset indices."""
+        data_path, _ = mock_h5_dataset_2d
+
+        data = DataH5Compact(str(data_path))
+
+        # Get pressures for different indices
+        u0 = data.u_pressures(0)
+        u1 = data.u_pressures(1)
+
+        # Should have same shape
+        assert u0.shape == u1.shape
+
+        # Should both be normalized
+        assert np.all(u0 >= -1.0) and np.all(u0 <= 1.0)
+        assert np.all(u1 >= -1.0) and np.all(u1 <= 1.0)
