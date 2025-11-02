@@ -15,6 +15,7 @@ import pytest
 from deeponet_acoustics.datahandlers.datagenerators import (
     DataH5Compact,
     DatasetStreamer,
+    _calculate_u_pressure_minmax,
     numpy_collate,
 )
 from deeponet_acoustics.models.datastructures import SimulationDataType
@@ -37,7 +38,7 @@ class TestDataH5Compact:
         assert data.mesh.shape[1] == 2  # 2D data
         assert len(data.datasets) == len(files)
         assert data.P > 0
-        assert data.Pmesh > 0
+        assert data.P_mesh > 0
 
     def test_mesh_properties(self, mock_h5_dataset_2d):
         """Test mesh properties and dimensions."""
@@ -46,8 +47,8 @@ class TestDataH5Compact:
         data = DataH5Compact(str(data_path), flatten_ic=True)
 
         assert data.mesh.ndim == 2
-        assert data.Pmesh == data.mesh.shape[0]
-        assert data.P == data.Pmesh * len(data.tsteps)
+        assert data.P_mesh == data.mesh.shape[0]
+        assert data.P == data.P_mesh * len(data.tsteps)
         assert len(data.tt) == data.P
 
     def test_data_pruning(self, mock_h5_dataset_2d):
@@ -58,8 +59,8 @@ class TestDataH5Compact:
         data_pruned = DataH5Compact(str(data_path), data_prune=2)
 
         # Pruned data should have fewer mesh points
-        assert data_pruned.Pmesh < data_full.Pmesh
-        assert data_pruned.Pmesh == (data_full.Pmesh + 1) // 2
+        assert data_pruned.P_mesh < data_full.P_mesh
+        assert data_pruned.P_mesh == (data_full.P_mesh + 1) // 2
 
     def test_time_truncation(self, mock_h5_dataset_2d):
         """Test time truncation with tmax parameter."""
@@ -102,13 +103,13 @@ class TestDataH5Compact:
 
         # Test spatial normalization
         test_coords = np.array([[data.xmin, data.xmin], [data.xmax, data.xmax]])
-        normalized = data.normalizeSpatial(test_coords)
+        normalized = data.normalize_spatial(test_coords)
 
         # Check boundaries map to [-1, 1]
         assert np.allclose(normalized, [[-1, -1], [1, 1]])
 
         # Test round-trip
-        denormalized = data.denormalizeSpatial(normalized)
+        denormalized = data.denormalize_spatial(normalized)
         assert np.allclose(test_coords, denormalized)
 
     def test_temporal_normalization_functions(self, mock_h5_dataset_2d):
@@ -119,10 +120,10 @@ class TestDataH5Compact:
 
         # Test temporal normalization
         test_times = np.array([0.0, 1.0, 2.0])
-        normalized = data.normalizeTemporal(test_times)
+        normalized = data.normalize_temporal(test_times)
         assert np.min(normalized.flatten()) == 0
 
-        denormalized = data.denormalizeTemporal(normalized)
+        denormalized = data.denormalize_temporal(normalized)
 
         # Check round-trip
         assert np.allclose(test_times, denormalized)
@@ -172,7 +173,7 @@ class TestDatasetStreamer:
         assert len(dataset) == len(files)
         assert dataset.N == len(files)
         assert dataset.P == data.P
-        assert dataset.Pmesh == data.Pmesh
+        assert dataset.P_mesh == data.P_mesh
 
     def test_getitem(self, mock_h5_dataset_2d):
         """Test getting individual items from dataset."""
@@ -287,3 +288,64 @@ class TestNumpyCollate:
         assert isinstance(result, list)
         assert len(result) == 2
         assert isinstance(result[0], list)
+
+
+@pytest.mark.unit
+class TestUPressures:
+    """Test suite for u_pressures functionality."""
+
+    def test_calculate_u_pressure_minmax(self):
+        """Test basic min/max calculation with mock datasets."""
+
+        # Create mock datasets with known min/max values
+        class MockDataset:
+            def __init__(self, data):
+                self.data = {"/upressures": data}
+
+            def __getitem__(self, key):
+                return self.data[key]
+
+        # Create datasets with known ranges
+        datasets = [
+            MockDataset(np.array([-1.5, 0.0, 1.5])),
+            MockDataset(np.array([-2.0, 0.5, 2.0])),
+            MockDataset(np.array([-1.0, 0.0, 1.0])),
+        ]
+
+        p_min, p_max = _calculate_u_pressure_minmax(datasets, "/upressures")
+
+        assert p_min == -2.0
+        assert p_max == 2.0
+
+    def test_u_pressures_normalization(self, mock_h5_dataset_2d):
+        """Test that u_pressures returns properly normalized values."""
+        data_path, _ = mock_h5_dataset_2d
+
+        data = DataH5Compact(str(data_path))
+
+        # Get normalized pressures
+        u_norm = data.u_pressures(0)
+
+        # Should be normalized to [-1, 1]
+        assert np.all(u_norm >= -1.0)
+        assert np.all(u_norm <= 1.0)
+
+        # Check shape matches u_shape
+        assert u_norm.shape == tuple(data.u_shape)
+
+    def test_u_pressures_different_indices(self, mock_h5_dataset_2d):
+        """Test u_pressures with different dataset indices."""
+        data_path, _ = mock_h5_dataset_2d
+
+        data = DataH5Compact(str(data_path))
+
+        # Get pressures for different indices
+        u0 = data.u_pressures(0)
+        u1 = data.u_pressures(1)
+
+        # Should have same shape
+        assert u0.shape == u1.shape
+
+        # Should both be normalized
+        assert np.all(u0 >= -1.0) and np.all(u0 <= 1.0)
+        assert np.all(u1 >= -1.0) and np.all(u1 <= 1.0)

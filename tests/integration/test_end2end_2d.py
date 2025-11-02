@@ -285,7 +285,7 @@ class TestEnd2End2D:
         # Check basic properties
         assert data.N == 3
         assert data.mesh.shape[1] == 2  # 2D
-        assert data.Pmesh == 15 * 15  # nx * ny
+        assert data.P_mesh == 15 * 15  # nx * ny
         assert len(data.tsteps) == 12
 
         # Test dataset streamer

@@ -92,7 +92,7 @@ class TestDeepONetComponents:
             N = 10  # Number of sources
             P = 500  # Total coordinate points
             u_shape = [50]  # Input shape
-            Pmesh = 50
+            P_mesh = 50
             tsteps = np.linspace(0, 1, 10)
 
             def __init__(self):
