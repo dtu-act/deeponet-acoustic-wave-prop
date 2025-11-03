@@ -12,26 +12,26 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python: Train 3D",
+            "name": "Python: Train",
             "type": "debugpy",
             "request": "launch",
             "module": "deeponet_acoustics.main_train",
             "args": [
                 "--path_settings",
-                "json_setups/threeD/settings.json",
+                "json_setups/threeD/choras_cube.json",
             ],
             "console": "integratedTerminal"
-        },
+        },        
         {
-            "name": "Python: Inference 3D",
+            "name": "Python: Inference",
             "type": "debugpy",
             "request": "launch",
             "module": "deeponet_acoustics.main_inference",
             "args": [
                 "--path_settings",
-                "json_setups/threeD/settings.json",
+                "json_setups/twoD/rect2x2.json",
                 "--path_eval_settings",
-                "json_setups/threeD/settings_eval.json",
+                "json_setups/twoD/rect2x2_eval.json",
             ],
             "console": "integratedTerminal"
         },

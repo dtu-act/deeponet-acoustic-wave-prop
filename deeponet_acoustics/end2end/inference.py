@@ -133,10 +133,9 @@ def inference(
     model.plotLosses(settings.dirs.figs_dir)
 
     tdim = len(metadata.tsteps)
-    xxyyzztt = metadata.xxyyzztt
-    y_in = y_feat_fn(xxyyzztt)
+    y_in = y_feat_fn(metadata.xxyyzztt)
 
-    xxyyzz_phys = metadata.denormalize_spatial(xxyyzztt[:, 0:3])
+    xxyyzz_phys = metadata.denormalize_spatial(metadata.xxyyzz)
     mesh_phys = metadata.denormalize_spatial(metadata.mesh)
     tsteps_phys = metadata.denormalize_temporal(metadata.tsteps / c_phys)
 
@@ -196,9 +195,13 @@ def inference(
         r0_list_norm = metadata.normalize_spatial(r0_list[i_src])
 
         (u_test_i, *_), s_test_i, _, x0 = dataset[i_src]
-
-        x0 = metadata.denormalize_spatial(x0)
-        x0_srcs.append(x0)
+        if len(x0) > 0:
+            x0 = metadata.denormalize_spatial(x0)
+            x0_srcs.append(x0)
+        else:
+            print("Warning: test data does not have source position data - setting index as coordinate")
+            x0 = i_src
+            x0_srcs.append([x0])
 
         y_rcvs = np.repeat(np.array(r0_list_norm), len(metadata.tsteps), axis=0)
         tsteps_rcvs = np.tile(metadata.tsteps, len(r0_list_norm))

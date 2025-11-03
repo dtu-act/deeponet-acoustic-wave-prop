@@ -88,6 +88,19 @@ def split_2d_by_source_position(input_file: Path, output_path: Path):
             x0_srcs = None
 
         print(f"Converting {num_sources} source positions from 2D to 3D format...")
+
+        # Compute denormalized values once for all sources
+        c_phys = float(pressure_attrs["c_phys"])
+        fmax_normalized = float(pressure_attrs["fmax"])
+        fmax_phys = round(fmax_normalized * c_phys, 1)
+        dt_normalized = float(pressure_attrs["dt"])
+        dt_phys = dt_normalized / c_phys
+
+        # Update pressure_attrs with denormalized values for use in root metadata
+        pressure_attrs_denormalized = pressure_attrs.copy()
+        pressure_attrs_denormalized["fmax"] = fmax_phys
+        pressure_attrs_denormalized["dt"] = dt_phys
+
         src_pos_2d = None
 
         for src_idx in range(num_sources):
@@ -120,10 +133,12 @@ def split_2d_by_source_position(input_file: Path, output_path: Path):
                     "pressures", data=src_pressures
                 )
 
-                # Add time_steps attribute to pressures (from t dataset)
-                pressures_dataset.attrs["time_steps"] = t.astype(np.float32)
+                # Denormalize time_steps by dividing by physical speed of sound
+                time_steps_phys = (t / c_phys).astype(np.float32)
+                pressures_dataset.attrs["time_steps"] = time_steps_phys
+
                 # Note: Adding all pressure attributes that weren't in original 3D data
-                for attr_name, attr_value in pressure_attrs.items():
+                for attr_name, attr_value in pressure_attrs_denormalized.items():
                     if attr_name != "time_steps":  # Avoid duplicate
                         pressures_dataset.attrs[attr_name] = attr_value
 
@@ -147,13 +162,13 @@ def split_2d_by_source_position(input_file: Path, output_path: Path):
                 for attr_name, attr_value in upressure_attrs.items():
                     upressures_dataset.attrs[attr_name] = attr_value
 
-            # Create metadata JSON file in source folder
-            create_metadata_json(src_folder, pressure_attrs, src_pos_2d)
+                # Create metadata JSON file in source folder using corrected attributes
+                create_metadata_json(src_folder, dict(pressures_dataset.attrs), src_pos_2d)
 
             print(f"Created {output_file}")
 
         # Create metadata JSON file in root directory as well
-        create_metadata_json(output_path, pressure_attrs, None)
+        create_metadata_json(output_path, pressure_attrs_denormalized, None)
 
         print(f"Conversion complete! Created {num_sources} files in {output_path}")
 

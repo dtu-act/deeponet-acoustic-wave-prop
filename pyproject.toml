@@ -48,6 +48,9 @@ test = [
    lint.select = ["E", "F", "I"]  # Error, pyflakes, isort rules
    lint.ignore = ["E501", "E731"]  # Ignore: line too long, lambda assignments
 
+[tool.setuptools]
+packages = ["deeponet_acoustics"] 
+
 [project.scripts]
 deeponet-train = "deeponet_acoustics.main_train:main"
 deeponet-infer = "deeponet_acoustics.main_inference:main"
