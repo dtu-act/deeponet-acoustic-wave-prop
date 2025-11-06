@@ -206,7 +206,9 @@ class DataXdmf(DataInterface):
         # Calculate min and max pressure values from sampled datasets
         if u_p_range is not None:
             self._u_p_min, self._u_p_max = u_p_range
-            print(f"Using specified u pressure range: [{self._u_p_min:.4f}, {self._u_p_max:.4f}]")
+            print(
+                f"Using specified u pressure range: [{self._u_p_min:.4f}, {self._u_p_max:.4f}]"
+            )
         else:
             self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
                 self.datasets, self.tag_ufield
@@ -302,7 +304,9 @@ class DataH5Compact(DataInterface):
             )
             self.tsteps = r[self.tags_field[0]].attrs["time_steps"]
             self.tsteps = jnp.array([t for t in self.tsteps if t <= tmax / t_norm])
-            self.tsteps = self.tsteps * t_norm # corresponding to c = 1 for same spatial / temporal resolution 
+            self.tsteps = (
+                self.tsteps * t_norm
+            )  # corresponding to c = 1 for same spatial / temporal resolution
 
             if self.normalize_data:
                 self.mesh = self.normalize_spatial(self.mesh)
@@ -324,7 +328,9 @@ class DataH5Compact(DataInterface):
         # Calculate min and max pressure values from sampled datasets
         if u_p_range is not None:
             self._u_p_min, self._u_p_max = u_p_range
-            print(f"Using specified u pressure range: [{self._u_p_min:.4f}, {self._u_p_max:.4f}]")
+            print(
+                f"Using specified u pressure range: [{self._u_p_min:.4f}, {self._u_p_max:.4f}]"
+            )
         else:
             self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
                 self.datasets, self.tag_ufield
@@ -344,7 +350,7 @@ class DataH5Compact(DataInterface):
     @property
     def xxyyzztt(self):
         return np.hstack((self.xxyyzz, self.tt.reshape(-1, 1)))
-    
+
     @property
     def xxyyzz(self):
         return np.tile(self.mesh, (len(self.tsteps), 1))
@@ -495,7 +501,9 @@ class DataSourceOnly(DataInterface):
         # Calculate min and max pressure values from generated datasets
         if u_p_range is not None:
             self._u_p_min, self._u_p_max = u_p_range
-            print(f"Using specified u pressure range: [{self._u_p_min:.4f}, {self._u_p_max:.4f}]")
+            print(
+                f"Using specified u pressure range: [{self._u_p_min:.4f}, {self._u_p_max:.4f}]"
+            )
         else:
             self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
                 self.datasets, self.tag_ufield, max_samples=self.N
@@ -524,12 +532,12 @@ class DataSourceOnly(DataInterface):
     @property
     def normalize_data(self) -> bool:
         return self._normalize_data
-    
+
     @property
     def xxyyzztt(self) -> np.ndarray[float]:
         """Spatio-temporal coordinates stacked as [x, y, z, t]."""
         return np.hstack((self.xxyyzz, self.tt.reshape(-1, 1)))
-    
+
     @property
     def xxyyzz(self) -> np.ndarray[float]:
         return np.tile(self.mesh, (len(self.tsteps), 1))
@@ -637,7 +645,9 @@ class DatasetStreamer(Dataset):
         elif self.data.simulationDataType == SimulationDataType.SOURCE_ONLY:
             s = []
         else:
-            raise Exception("Data format unknown: should be H5COMPACT, XDMF or SOURCE_ONLY")
+            raise Exception(
+                "Data format unknown: should be H5COMPACT, XDMF or SOURCE_ONLY"
+            )
 
         # normalize
         x0 = (

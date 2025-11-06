@@ -199,7 +199,9 @@ def inference(
             x0 = metadata.denormalize_spatial(x0)
             x0_srcs.append(x0)
         else:
-            print("Warning: test data does not have source position data - setting index as coordinate")
+            print(
+                "Warning: test data does not have source position data - setting index as coordinate"
+            )
             x0 = i_src
             x0_srcs.append([x0])
 

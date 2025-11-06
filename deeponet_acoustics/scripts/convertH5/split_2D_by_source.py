@@ -163,7 +163,9 @@ def split_2d_by_source_position(input_file: Path, output_path: Path):
                     upressures_dataset.attrs[attr_name] = attr_value
 
                 # Create metadata JSON file in source folder using corrected attributes
-                create_metadata_json(src_folder, dict(pressures_dataset.attrs), src_pos_2d)
+                create_metadata_json(
+                    src_folder, dict(pressures_dataset.attrs), src_pos_2d
+                )
 
             print(f"Created {output_file}")
 
