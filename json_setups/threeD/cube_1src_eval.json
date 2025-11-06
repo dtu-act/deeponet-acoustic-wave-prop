@@ -1,0 +1,19 @@
+{
+    "model_dir": "/Users/nikolasborrel/data/deeponet/data/cube_1src/",
+    "validation_data_dir": "/Users/nikolasborrel/data/deeponet/data/input3D_1src/cube2x2x2_1000hz_p6_6ppw_srcs2826_train",
+
+    "tmax": 17,
+    
+    "write_full_wave_field": false,
+
+    "snap_to_grid": true,
+    "write_ir_plots": true,
+    "write_ir_animations": false,
+    "write_ir_wav": true,
+
+    "recv_pos_0": [[1.66256893, 1.61655235, 1.64047122]],
+
+    "receiver_position_groups": [
+        "recv_pos_0"
+    ]
+}

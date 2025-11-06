@@ -16,6 +16,7 @@ from typing import Callable
 import h5py
 import jax.numpy as jnp
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 
 import deeponet_acoustics.datahandlers.io as IO
@@ -160,6 +161,7 @@ class DataXdmf(DataInterface):
         data_prune=1,
         norm_data=False,
         MAXNUM_DATASETS=sys.maxsize,
+        u_p_range=None,
     ):
         filenames_xdmf = IO.pathsToFileType(data_path, ".xdmf", exclude="rectilinear")
         self.normalize_data = norm_data
@@ -202,9 +204,15 @@ class DataXdmf(DataInterface):
         self.N = len(self.datasets)
 
         # Calculate min and max pressure values from sampled datasets
-        self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
-            self.datasets, self.tag_ufield
-        )
+        if u_p_range is not None:
+            self._u_p_min, self._u_p_max = u_p_range
+            print(
+                f"Using specified u pressure range: [{self._u_p_min:.4f}, {self._u_p_max:.4f}]"
+            )
+        else:
+            self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
+                self.datasets, self.tag_ufield
+            )
 
     # --- required abstract properties implemented ---
     @property
@@ -264,6 +272,7 @@ class DataH5Compact(DataInterface):
         data_prune=1,
         norm_data=False,
         MAXNUM_DATASETS=sys.maxsize,
+        u_p_range=None,
     ):
         filenamesH5 = IO.pathsToFileType(data_path, ".h5", exclude="rectilinear")
         self.data_prune = data_prune
@@ -295,10 +304,13 @@ class DataH5Compact(DataInterface):
             )
             self.tsteps = r[self.tags_field[0]].attrs["time_steps"]
             self.tsteps = jnp.array([t for t in self.tsteps if t <= tmax / t_norm])
-            self.tsteps = self.tsteps * t_norm
+            self.tsteps = (
+                self.tsteps * t_norm
+            )  # corresponding to c = 1 for same spatial / temporal resolution
 
             if self.normalize_data:
                 self.mesh = self.normalize_spatial(self.mesh)
+                # normalize relative to spatial dimension to keep ratio
                 self.tsteps = self.normalize_temporal(self.tsteps)
 
         self.tt = np.repeat(self.tsteps, self.mesh.shape[0])
@@ -308,16 +320,21 @@ class DataH5Compact(DataInterface):
         for i in range(0, min(MAXNUM_DATASETS, len(filenamesH5))):
             filename = filenamesH5[i]
             if Path(filename).exists():
-                self.datasets.append(
-                    h5py.File(filename, "r")
-                )  # add file handles and keeps open
+                # add file handles and keeps open
+                self.datasets.append(h5py.File(filename, "r"))
             else:
                 print(f"Could not be found (ignoring): {filename}")
 
         # Calculate min and max pressure values from sampled datasets
-        self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
-            self.datasets, self.tag_ufield
-        )
+        if u_p_range is not None:
+            self._u_p_min, self._u_p_max = u_p_range
+            print(
+                f"Using specified u pressure range: [{self._u_p_min:.4f}, {self._u_p_max:.4f}]"
+            )
+        else:
+            self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
+                self.datasets, self.tag_ufield
+            )
 
     # --- required abstract properties implemented ---
     @property
@@ -332,8 +349,11 @@ class DataH5Compact(DataInterface):
 
     @property
     def xxyyzztt(self):
-        xxyyzz = np.tile(self.mesh, (len(self.tsteps), 1))
-        return np.hstack((xxyyzz, self.tt.reshape(-1, 1)))
+        return np.hstack((self.xxyyzz, self.tt.reshape(-1, 1)))
+
+    @property
+    def xxyyzz(self):
+        return np.tile(self.mesh, (len(self.tsteps), 1))
 
     def normalize_spatial(self, data):
         return _normalize_spatial(data, self.xmin, self.xmax)
@@ -412,6 +432,7 @@ class DataSourceOnly(DataInterface):
         flatten_ic: bool = True,
         data_prune: int = 1,
         norm_data: bool = False,
+        u_p_range=None,
     ) -> None:
         self.data_prune = data_prune
         self._normalize_data = norm_data
@@ -478,9 +499,15 @@ class DataSourceOnly(DataInterface):
                 )
 
         # Calculate min and max pressure values from generated datasets
-        self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
-            self.datasets, self.tag_ufield, max_samples=self.N
-        )
+        if u_p_range is not None:
+            self._u_p_min, self._u_p_max = u_p_range
+            print(
+                f"Using specified u pressure range: [{self._u_p_min:.4f}, {self._u_p_max:.4f}]"
+            )
+        else:
+            self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
+                self.datasets, self.tag_ufield, max_samples=self.N
+            )
 
         self.tt = np.repeat(self.tsteps, self.mesh.shape[0])
 
@@ -509,8 +536,11 @@ class DataSourceOnly(DataInterface):
     @property
     def xxyyzztt(self) -> np.ndarray[float]:
         """Spatio-temporal coordinates stacked as [x, y, z, t]."""
-        xxyyzz = np.tile(self.mesh, (len(self.tsteps), 1))
-        return np.hstack((xxyyzz, self.tt.reshape(-1, 1)))
+        return np.hstack((self.xxyyzz, self.tt.reshape(-1, 1)))
+
+    @property
+    def xxyyzz(self) -> np.ndarray[float]:
+        return np.tile(self.mesh, (len(self.tsteps), 1))
 
     def normalize_spatial(self, data: np.ndarray[float]) -> np.ndarray[float]:
         return _normalize_spatial(data, self._xmin, self._xmax)
@@ -606,7 +636,7 @@ class DatasetStreamer(Dataset):
                 0:num_tsteps, :: self.data.data_prune
             ].flatten()[indxs_coord]
         elif self.data.simulationDataType == SimulationDataType.XDMF:
-            s = np.empty((self.P), dtype=jnp.float32)
+            s = np.empty((self.P), dtype=np.float32)
             for j in range(num_tsteps):
                 s[j * self.data.P_mesh : (j + 1) * self.P_mesh] = dataset[
                     self.data.tags_field[j]
@@ -615,7 +645,9 @@ class DatasetStreamer(Dataset):
         elif self.data.simulationDataType == SimulationDataType.SOURCE_ONLY:
             s = []
         else:
-            raise Exception("Data format unknown: should be H5COMPACT or XDMF")
+            raise Exception(
+                "Data format unknown: should be H5COMPACT, XDMF or SOURCE_ONLY"
+            )
 
         # normalize
         x0 = (
@@ -624,8 +656,8 @@ class DatasetStreamer(Dataset):
             else []
         )
 
-        inputs = jnp.asarray(u), jnp.asarray(y)
-        return inputs, jnp.asarray(s), indxs_coord, x0
+        inputs = np.asarray(u), np.asarray(y)
+        return inputs, np.asarray(s), indxs_coord, x0
 
 
 def get_number_of_sources(data_path: str):
@@ -633,6 +665,7 @@ def get_number_of_sources(data_path: str):
 
 
 def numpy_collate(batch):
+    """Collate function for JAX - converts batches to JAX arrays."""
     if isinstance(batch[0], np.ndarray):
         return jnp.stack(batch)
     elif isinstance(batch[0], (tuple, list)):
@@ -640,3 +673,21 @@ def numpy_collate(batch):
         return [numpy_collate(samples) for samples in transposed]
     else:
         return np.array(batch)
+
+
+def pytorch_collate(batch):
+    """Collate function for PyTorch - converts batches to PyTorch tensors.
+
+    Use this collator with PyTorch DataLoader for educational notebooks:
+        DataLoader(dataset, batch_size=2, collate_fn=pytorch_collate)
+    """
+
+    if isinstance(batch[0], np.ndarray):
+        return torch.from_numpy(np.stack(batch)).float()
+    elif isinstance(batch[0], jnp.ndarray):
+        return torch.from_numpy(np.array(batch)).float()
+    elif isinstance(batch[0], (tuple, list)):
+        transposed = zip(*batch)
+        return [pytorch_collate(samples) for samples in transposed]
+    else:
+        return torch.tensor(batch).float()
