@@ -161,6 +161,7 @@ class DataXdmf(DataInterface):
         data_prune=1,
         norm_data=False,
         MAXNUM_DATASETS=sys.maxsize,
+        u_p_range=None,
     ):
         filenames_xdmf = IO.pathsToFileType(data_path, ".xdmf", exclude="rectilinear")
         self.normalize_data = norm_data
@@ -203,9 +204,13 @@ class DataXdmf(DataInterface):
         self.N = len(self.datasets)
 
         # Calculate min and max pressure values from sampled datasets
-        self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
-            self.datasets, self.tag_ufield
-        )
+        if u_p_range is not None:
+            self._u_p_min, self._u_p_max = u_p_range
+            print(f"Using specified u pressure range: [{self._u_p_min:.4f}, {self._u_p_max:.4f}]")
+        else:
+            self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
+                self.datasets, self.tag_ufield
+            )
 
     # --- required abstract properties implemented ---
     @property
@@ -265,6 +270,7 @@ class DataH5Compact(DataInterface):
         data_prune=1,
         norm_data=False,
         MAXNUM_DATASETS=sys.maxsize,
+        u_p_range=None,
     ):
         filenamesH5 = IO.pathsToFileType(data_path, ".h5", exclude="rectilinear")
         self.data_prune = data_prune
@@ -300,6 +306,7 @@ class DataH5Compact(DataInterface):
 
             if self.normalize_data:
                 self.mesh = self.normalize_spatial(self.mesh)
+                # normalize relative to spatial dimension to keep ratio
                 self.tsteps = self.normalize_temporal(self.tsteps)
 
         self.tt = np.repeat(self.tsteps, self.mesh.shape[0])
@@ -315,9 +322,13 @@ class DataH5Compact(DataInterface):
                 print(f"Could not be found (ignoring): {filename}")
 
         # Calculate min and max pressure values from sampled datasets
-        self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
-            self.datasets, self.tag_ufield
-        )
+        if u_p_range is not None:
+            self._u_p_min, self._u_p_max = u_p_range
+            print(f"Using specified u pressure range: [{self._u_p_min:.4f}, {self._u_p_max:.4f}]")
+        else:
+            self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
+                self.datasets, self.tag_ufield
+            )
 
     # --- required abstract properties implemented ---
     @property
@@ -415,6 +426,7 @@ class DataSourceOnly(DataInterface):
         flatten_ic: bool = True,
         data_prune: int = 1,
         norm_data: bool = False,
+        u_p_range=None,
     ) -> None:
         self.data_prune = data_prune
         self._normalize_data = norm_data
@@ -481,9 +493,13 @@ class DataSourceOnly(DataInterface):
                 )
 
         # Calculate min and max pressure values from generated datasets
-        self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
-            self.datasets, self.tag_ufield, max_samples=self.N
-        )
+        if u_p_range is not None:
+            self._u_p_min, self._u_p_max = u_p_range
+            print(f"Using specified u pressure range: [{self._u_p_min:.4f}, {self._u_p_max:.4f}]")
+        else:
+            self._u_p_min, self._u_p_max = _calculate_u_pressure_minmax(
+                self.datasets, self.tag_ufield, max_samples=self.N
+            )
 
         self.tt = np.repeat(self.tsteps, self.mesh.shape[0])
 

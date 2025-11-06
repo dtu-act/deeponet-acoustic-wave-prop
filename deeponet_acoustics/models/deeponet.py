@@ -219,13 +219,13 @@ class DeepONet:
                 i += 1
 
                 if do_timings:
-                    timer.startTiming("backprop") if do_timings else None
+                    timer.startTiming("backprop")
                     self.params, self.opt_state, _ = self.step(
                         self.params, self.opt_state, data_batch
                     )
-                    jax.block_until_ready(self.params) if do_timings else None
-                    jax.block_until_ready(self.opt_state) if do_timings else None
-                    timer.endTiming("backprop") if do_timings else None
+                    jax.block_until_ready(self.params)
+                    jax.block_until_ready(self.opt_state)
+                    timer.endTiming("backprop")
 
                     timer.writeTimings(
                         {
@@ -235,8 +235,8 @@ class DeepONet:
                         }
                     )
                     timer.resetTimings()
-                    timer.startTiming("total_iter") if do_timings else None
-                    timer.startTiming("dataloader") if do_timings else None
+                    timer.startTiming("total_iter")
+                    timer.startTiming("dataloader")
                 else:
                     self.params, self.opt_state, _ = self.step(
                         self.params, self.opt_state, data_batch

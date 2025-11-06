@@ -65,6 +65,7 @@ def train(settings_dict: dict[str, Any]):
         t_norm=c_phys,
         norm_data=settings.normalize_data,
         flatten_ic=flatten_ic,
+        u_p_range=(-2.0, 2.0),
     )
     dataset = DatasetStreamer(
         metadata, training.batch_size_coord, y_feat_extract_fn=y_feat_fn
@@ -75,6 +76,7 @@ def train(settings_dict: dict[str, Any]):
         t_norm=c_phys,
         norm_data=settings.normalize_data,
         flatten_ic=flatten_ic,
+        u_p_range=(-2.0, 2.0),
     )
     dataset_val = DatasetStreamer(
         metadata_val, training.batch_size_coord, y_feat_extract_fn=y_feat_fn
