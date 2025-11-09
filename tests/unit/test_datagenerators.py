@@ -30,11 +30,11 @@ class TestDataH5Compact:
         data_path, files = mock_h5_dataset_2d
 
         data = DataH5Compact(
-            str(data_path), tmax=1.0, t_norm=1.0, flatten_ic=True, data_prune=1
+            str(data_path), tmax=0.05, t_norm=343, flatten_ic=True, data_prune=1
         )
 
         assert data.N == len(files)
-        assert data.simulationDataType == SimulationDataType.H5COMPACT
+        assert data.simulation_data_type == SimulationDataType.H5COMPACT
         assert data.mesh.shape[1] == 2  # 2D data
         assert len(data.datasets) == len(files)
         assert data.P > 0
@@ -92,8 +92,8 @@ class TestDataH5Compact:
 
         # Test that xmin and xmax are the same
         # min / max are set for the original non-normalized data (TODO; rename)
-        assert np.isclose(data_normalized.xmin, data_unnormalized.xmin)
-        assert np.isclose(data_normalized.xmax, data_unnormalized.xmax)
+        assert np.isclose(data_normalized.xmin_phys, data_unnormalized.xmin_phys)
+        assert np.isclose(data_normalized.xmax_phys, data_unnormalized.xmax_phys)
 
     def test_spatial_normalization_functions(self, mock_h5_dataset_2d):
         """Test normalization and denormalization functions."""
@@ -102,7 +102,9 @@ class TestDataH5Compact:
         data = DataH5Compact(str(data_path), norm_data=False)
 
         # Test spatial normalization
-        test_coords = np.array([[data.xmin, data.xmin], [data.xmax, data.xmax]])
+        test_coords = np.array(
+            [[data.xmin_phys, data.xmin_phys], [data.xmax_phys, data.xmax_phys]]
+        )
         normalized = data.normalize_spatial(test_coords)
 
         # Check boundaries map to [-1, 1]

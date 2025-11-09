@@ -54,7 +54,7 @@ def train(settings_dict: dict[str, Any]):
     c_phys = phys_params.c_phys
 
     f = settings.f0_feat
-    y_feat_fn = fourierFeatureExpansion_f0(f)
+    y_feat_fn = fourierFeatureExpansion_f0(f, c_phys)
 
     flatten_ic = branch_net.architecture != NetworkArchitectureType.RESNET
 
@@ -84,7 +84,7 @@ def train(settings_dict: dict[str, Any]):
 
     dataloader = DataLoader(
         dataset,
-        batch_size=training.batch_size_branch,
+        batch_size=min(training.batch_size_branch, dataset.N),
         shuffle=True,
         collate_fn=numpy_collate,
         drop_last=len(dataset) > 1,
@@ -92,7 +92,7 @@ def train(settings_dict: dict[str, Any]):
     # do not drop last, validation set has few samples
     dataloader_val = DataLoader(
         dataset_val,
-        batch_size=training.batch_size_branch,
+        batch_size=min(training.batch_size_branch, dataset_val.N),
         shuffle=True,
         collate_fn=numpy_collate,
         drop_last=False,

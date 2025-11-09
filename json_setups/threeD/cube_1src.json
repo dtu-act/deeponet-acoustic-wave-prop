@@ -4,12 +4,12 @@
     "input_dir": "/Users/nikolasborrel/data/deeponet/data/input3D_1src",
     "output_dir": "/Users/nikolasborrel/data/deeponet/data/output3D",
 
-    "training_data_dir": "cube2x2x2_1000hz_p6_6ppw_srcs2826_train",
-    "testing_data_dir": "cube2x2x2_1000hz_p4_5ppw_srcs100_val",
+    "train_data_dir": "cube2x2x2_1000hz_p6_6ppw_srcs2826_train",
+    "val_data_dir": "cube2x2x2_1000hz_p4_5ppw_srcs100_val",
 
-    "tmax": 17.0,
+    "tmax": 0.05,
     
-    "f0_feat": [1.458,0.729,0.486],
+    "f0_feat": [500.0, 250.0, 167.0],
     "normalize_data": true,
 
     "iterations": 2000,

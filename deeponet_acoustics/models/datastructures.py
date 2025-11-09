@@ -90,10 +90,10 @@ class InputOutputDirs:
         self.figs_dir = os.path.join(self.id_dir, "figs")
         self.models_dir = os.path.join(self.id_dir, "models")
         self.training_data_path = os.path.join(
-            self.data_dir, settings_dict["training_data_dir"]
+            self.data_dir, settings_dict["train_data_dir"]
         )
         self.testing_data_path = os.path.join(
-            self.data_dir, settings_dict["testing_data_dir"]
+            self.data_dir, settings_dict["val_data_dir"]
         )
         self.plot_graph_path = os.path.join(self.models_dir, "deeponet", "network.png")
 
@@ -122,7 +122,7 @@ class Domain:
     spatial_dimension: int
 
     Xbounds: list[list[float]]
-    tmax: float
+    tmax: float  # physical
 
     nX: list[list[int]]
     nt: int
@@ -194,15 +194,9 @@ class MLPArchitecture:
     num_output_neurons: int
 
 
-# "num_group_blocks": [3, 3, 3, 3],
-# "cnn_hidden_layers": [16, 32, 64, 128],
-# "num_hidden_layers": 0,
-# "num_hidden_neurons": 2048
-
-
 @dataclass(frozen=True)
 class ResNetArchitecture:
-    architecture: NetworkArchitectureType  # = NetworkArchitectureType.RESNET
+    architecture: NetworkArchitectureType
     activation: str
     num_hidden_layers: int
     num_hidden_neurons: int
@@ -294,7 +288,7 @@ class EvaluationSettings:
                 "Missing receiver information: expected either of the following keys: 'receiver_position_groups', 'receiver_positions_all_sources'"
             )
 
-        self.data_path = settings["validation_data_dir"]
+        self.data_path = settings["test_data_dir"]
         self.model_dir = settings["model_dir"]
         self.tmax = settings["tmax"]
 

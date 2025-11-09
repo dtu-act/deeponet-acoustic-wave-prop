@@ -5,12 +5,12 @@
     "input_dir__": "/localssd0/nibor/",
     "output_dir": "/work3/nibor/data/deeponet/output3D",
 
-    "training_data_dir": "cube6x6x6_1000hz_p6_5ppw_srcs393_train",
-    "testing_data_dir": "cube6x6x6_1000hz_p6_4ppw_srcs45_val",
+    "train_data_dir": "cube6x6x6_1000hz_p6_5ppw_srcs393_train",
+    "val_data_dir": "cube6x6x6_1000hz_p6_4ppw_srcs45_val",
 
-    "tmax": 10.2,
+    "tmax": 0.03,
     
-    "f0_feat": [1.458,0.729,0.486],
+    "f0_feat": [500.0, 250.0, 167.0],
     "normalize_data": true,
 
     "iterations": 13200,

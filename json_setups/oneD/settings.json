@@ -3,16 +3,16 @@
     "input_dir": "/work3/nibor/1TB/input1D",
     "output_dir": "/work3/nibor/data/deeponet/output1D",
 
-    "training_data_dir": "1D_samples59_length4_source_train.h5",
-    "testing_data_dir": "1D_samples5_length4_source_val.h5",
+    "train_data_dir": "1D_samples59_length4_source_train.h5",
+    "val_data_dir": "1D_samples5_length4_source_val.h5",
 
-    "tmax": 16.9,
+    "tmax": 0.05,
 
     "iterations": 80000,
     "decay_steps": 2000,
     "decay_rate": 0.90,
     
-    "f0_feat": [1.458,0.729,0.486],
+    "f0_feat": [500.0, 250.0, 167.0],
     "normalize_data": true,
     
     "__comment1__": "total batch_size is a multiple of branch and coordinate sizes",

@@ -69,15 +69,15 @@ def _normalize_spatial(data: np.ndarray, xmin: float, xmax: float) -> np.ndarray
 
 
 def _normalize_temporal(data: np.ndarray, xmin: float, xmax: float) -> np.ndarray:
-    """Normalize temporal coordinates.
+    """Normalize temporal coordinates relative to spatial dimension to maintain resolution for optimizer.
 
     Args:
-        data: Data to normalize
+        data: Temporal data to normalize
         xmin: Minimum spatial value for normalization
         xmax: Maximum spatial value for normalization
 
     Returns:
-        Normalized temporal data
+        Normalized temporal data scaled relative to spatial extent
     """
     return data / (xmax - xmin) / 2
 
@@ -111,8 +111,9 @@ def _denormalize_temporal(data: np.ndarray, xmin: float, xmax: float) -> np.ndar
 
 
 class DataInterface(ABC):
-    # Required attributes that concrete classes must define
-    simulationDataType: SimulationDataType
+    """Abstract interface for data loaders."""
+
+    simulation_data_type: SimulationDataType
     datasets: list[h5py.File]
     mesh: np.ndarray
     tags_field: list[str]
@@ -123,10 +124,31 @@ class DataInterface(ABC):
     u_shape: np.ndarray | list[int]
     tsteps: np.ndarray
 
+    xmin_phys: float
+    xmax_phys: float
+
+    @property
+    @abstractmethod
+    def P_mesh(self) -> int:
+        """Total number of mesh points."""
+        pass
+
     @property
     @abstractmethod
     def P(self) -> int:
         """Total number of time/space points."""
+        pass
+
+    @property
+    @abstractmethod
+    def xxyyzztt(self) -> np.ndarray:
+        """Spatio-temporal coordinates stacked as [x, y, z, t]."""
+        pass
+
+    @property
+    @abstractmethod
+    def xxyyzz(self) -> np.ndarray:
+        """Spatial coordinates tiled for all timesteps."""
         pass
 
     @abstractmethod
@@ -134,22 +156,41 @@ class DataInterface(ABC):
         """Get normalized u pressures for a given dataset index."""
         pass
 
+    @abstractmethod
+    def normalize_spatial(self, data) -> np.ndarray:
+        """Normalize spatial coordinates to [-1, 1] range."""
+        pass
+
+    @abstractmethod
+    def normalize_temporal(self, data) -> np.ndarray:
+        """Normalize temporal coordinates relative to spatial dimension to maintain resolution for optimizer."""
+        pass
+
+    @abstractmethod
+    def denormalize_spatial(self, data) -> np.ndarray:
+        """Denormalize spatial coordinates from [-1, 1] range."""
+        pass
+
+    @abstractmethod
+    def denormalize_temporal(self, data) -> np.ndarray:
+        """Denormalize temporal coordinates."""
+        pass
+
 
 class DataXdmf(DataInterface):
-    simulationDataType: SimulationDataType = SimulationDataType.XDMF
-
+    simulation_data_type: SimulationDataType = SimulationDataType.XDMF
     datasets: list[h5py.File]
     mesh: np.ndarray
-    u_shape: list[int]
-    tsteps: np.ndarray
-    tt: np.ndarray
     tags_field: list[str]
     tag_ufield: str
+    tt: np.ndarray
     data_prune: int
     N: int
+    u_shape: list[int]
+    tsteps: np.ndarray
 
-    xmin: float
-    xmax: float
+    xmin_phys: float
+    xmax_phys: float
     normalize_data: bool
 
     def __init__(
@@ -163,11 +204,23 @@ class DataXdmf(DataInterface):
         MAXNUM_DATASETS=sys.maxsize,
         u_p_range=None,
     ):
+        """Initialize XDMF data loader.
+
+        Args:
+            data_path: Path to directory containing XDMF files
+            tmax: Maximum time to load (default: inf)
+            t_norm: Temporal normalization factor (default: 1)
+            flatten_ic: Whether to flatten initial condition (default: True)
+            data_prune: Spatial pruning factor (default: 1)
+            norm_data: Whether to normalize data (default: False)
+            MAXNUM_DATASETS: Maximum number of datasets to load (default: sys.maxsize)
+            u_p_range: Optional tuple of (min, max) pressure range (default: None)
+        """
         filenames_xdmf = IO.pathsToFileType(data_path, ".xdmf", exclude="rectilinear")
         self.normalize_data = norm_data
 
         # NOTE: we assume meshes, tags, etc are the same across all xdmf datasets
-        xdmf = XdmfReader(filenames_xdmf[0], tmax=tmax / t_norm)
+        xdmf = XdmfReader(filenames_xdmf[0], tmax=tmax)
         self.tags_field = xdmf.tags_field
         self.tag_ufield = xdmf.tag_ufield
         self.data_prune = data_prune
@@ -175,7 +228,7 @@ class DataXdmf(DataInterface):
 
         with h5py.File(xdmf.filenameH5) as r:
             self.mesh = np.array(r[xdmf.tag_mesh][:: self.data_prune])
-            self.xmin, self.xmax = np.min(self.mesh), np.max(self.mesh)
+            self.xmin_phys, self.xmax_phys = np.min(self.mesh), np.max(self.mesh)
             umesh_obj = r[xdmf.tag_umesh]
             umesh = np.array(umesh_obj[:])
             self.u_shape = (
@@ -194,7 +247,7 @@ class DataXdmf(DataInterface):
         for i in range(0, min(MAXNUM_DATASETS, len(filenames_xdmf))):
             filename = filenames_xdmf[i]
             if Path(filename).exists():
-                xdmf = XdmfReader(filename, tmax / t_norm)
+                xdmf = XdmfReader(filename, tmax)
                 self.datasets.append(
                     h5py.File(xdmf.filenameH5, "r")
                 )  # add file handles and keeps open
@@ -225,11 +278,31 @@ class DataXdmf(DataInterface):
         """Total number of time/space points."""
         return self.P_mesh * len(self.tsteps)
 
-    def normalize_spatial(self, data):
-        return _normalize_spatial(data, self.xmin, self.xmax)
+    @property
+    def xxyyzztt(self):
+        """Spatio-temporal coordinates stacked as [x, y, z, t]."""
+        return np.hstack((self.xxyyzz, self.tt.reshape(-1, 1)))
 
-    def normalize_temporal(self, data):
-        return _normalize_temporal(data, self.xmin, self.xmax)
+    @property
+    def xxyyzz(self):
+        """Spatial coordinates tiled for all timesteps."""
+        return np.tile(self.mesh, (len(self.tsteps), 1))
+
+    def normalize_spatial(self, data) -> np.ndarray:
+        """Normalize spatial coordinates to [-1, 1] range."""
+        return _normalize_spatial(data, self.xmin_phys, self.xmax_phys)
+
+    def normalize_temporal(self, data) -> np.ndarray:
+        """Normalize temporal coordinates relative to spatial dimension to maintain resolution for optimizer."""
+        return _normalize_temporal(data, self.xmin_phys, self.xmax_phys)
+
+    def denormalize_spatial(self, data) -> np.ndarray:
+        """Denormalize spatial coordinates from [-1, 1] range."""
+        return _denormalize_spatial(data, self.xmin_phys, self.xmax_phys)
+
+    def denormalize_temporal(self, data) -> np.ndarray:
+        """Denormalize temporal coordinates."""
+        return _denormalize_temporal(data, self.xmin_phys, self.xmax_phys)
 
     def u_pressures(self, idx: int) -> np.ndarray:
         """Get normalized u pressures for a given dataset index."""
@@ -240,12 +313,13 @@ class DataXdmf(DataInterface):
         return jnp.reshape(u_norm, self.u_shape)
 
     def __del__(self):
+        """Clean up by closing all open dataset files."""
         for dataset in self.datasets:
             dataset.close()
 
 
 class DataH5Compact(DataInterface):
-    simulationDataType: SimulationDataType = SimulationDataType.H5COMPACT
+    simulation_data_type: SimulationDataType = SimulationDataType.H5COMPACT
 
     datasets: list[h5py.File]
     mesh: np.ndarray
@@ -256,9 +330,9 @@ class DataH5Compact(DataInterface):
     tag_ufield: str
     data_prune: int
     N: int
+    xmin_phys: float
+    xmax_phys: float
 
-    xmin: float
-    xmax: float
     normalize_data: bool
     conn: np.ndarray
 
@@ -274,6 +348,18 @@ class DataH5Compact(DataInterface):
         MAXNUM_DATASETS=sys.maxsize,
         u_p_range=None,
     ):
+        """Initialize compact HDF5 data loader.
+
+        Args:
+            data_path: Path to directory containing HDF5 files
+            tmax: Maximum time to load (default: inf)
+            t_norm: Temporal normalization factor (default: 1)
+            flatten_ic: Whether to flatten initial condition (default: True)
+            data_prune: Spatial pruning factor (default: 1)
+            norm_data: Whether to normalize data (default: False)
+            MAXNUM_DATASETS: Maximum number of datasets to load (default: sys.maxsize)
+            u_p_range: Optional tuple of (min, max) pressure range (default: None)
+        """
         filenamesH5 = IO.pathsToFileType(data_path, ".h5", exclude="rectilinear")
         self.data_prune = data_prune
         self.normalize_data = norm_data
@@ -293,7 +379,7 @@ class DataH5Compact(DataInterface):
                 if self.data_prune == 1 and tag_conn in r
                 else np.array([])
             )
-            self.xmin, self.xmax = np.min(self.mesh), np.max(self.mesh)
+            self.xmin_phys, self.xmax_phys = np.min(self.mesh), np.max(self.mesh)
 
             umesh_obj = r[tag_umesh]
             umesh = np.array(umesh_obj[:])
@@ -303,7 +389,7 @@ class DataH5Compact(DataInterface):
                 else jnp.array(umesh_obj.attrs[tag_ushape][:], dtype=int)
             )
             self.tsteps = r[self.tags_field[0]].attrs["time_steps"]
-            self.tsteps = jnp.array([t for t in self.tsteps if t <= tmax / t_norm])
+            self.tsteps = jnp.array([t for t in self.tsteps if t <= tmax])
             self.tsteps = (
                 self.tsteps * t_norm
             )  # corresponding to c = 1 for same spatial / temporal resolution
@@ -349,23 +435,29 @@ class DataH5Compact(DataInterface):
 
     @property
     def xxyyzztt(self):
+        """Spatio-temporal coordinates stacked as [x, y, z, t]."""
         return np.hstack((self.xxyyzz, self.tt.reshape(-1, 1)))
 
     @property
     def xxyyzz(self):
+        """Spatial coordinates tiled for all timesteps."""
         return np.tile(self.mesh, (len(self.tsteps), 1))
 
-    def normalize_spatial(self, data):
-        return _normalize_spatial(data, self.xmin, self.xmax)
+    def normalize_spatial(self, data) -> np.ndarray:
+        """Normalize spatial coordinates to [-1, 1] range."""
+        return _normalize_spatial(data, self.xmin_phys, self.xmax_phys)
 
-    def normalize_temporal(self, data):
-        return _normalize_temporal(data, self.xmin, self.xmax)
+    def normalize_temporal(self, data) -> np.ndarray:
+        """Normalize temporal coordinates relative to spatial dimension to maintain resolution for optimizer."""
+        return _normalize_temporal(data, self.xmin_phys, self.xmax_phys)
 
-    def denormalize_spatial(self, data):
-        return _denormalize_spatial(data, self.xmin, self.xmax)
+    def denormalize_spatial(self, data) -> np.ndarray:
+        """Denormalize spatial coordinates from [-1, 1] range."""
+        return _denormalize_spatial(data, self.xmin_phys, self.xmax_phys)
 
-    def denormalize_temporal(self, data):
-        return _denormalize_temporal(data, self.xmin, self.xmax)
+    def denormalize_temporal(self, data) -> np.ndarray:
+        """Denormalize temporal coordinates."""
+        return _denormalize_temporal(data, self.xmin_phys, self.xmax_phys)
 
     def u_pressures(self, idx: int) -> np.ndarray:
         """Get normalized u pressures for a given dataset index."""
@@ -376,6 +468,7 @@ class DataH5Compact(DataInterface):
         return jnp.reshape(u_norm, self.u_shape)
 
     def __del__(self):
+        """Clean up by closing all open dataset files."""
         for dataset in self.datasets:
             dataset.close()
 
@@ -389,15 +482,37 @@ class DatasetH5Mock:
     data: dict
 
     def __init__(self, data: dict):
+        """Initialize mock HDF5 dataset with dictionary data.
+
+        Args:
+            data: Dictionary containing dataset fields
+        """
         self.data = data
 
     def __getitem__(self, item):
+        """Get item from dataset.
+
+        Args:
+            item: Key to retrieve from dataset
+
+        Returns:
+            Value corresponding to the key
+        """
         return self.data[item]
 
     def __contains__(self, key):
+        """Check if key exists in dataset.
+
+        Args:
+            key: Key to check for existence
+
+        Returns:
+            True if key exists, False otherwise
+        """
         return key in self.data
 
     def close(self):
+        """Close the dataset (mock implementation, does nothing)."""
         # mocking HdF5 close method
         pass
 
@@ -409,16 +524,20 @@ class DataSourceOnly(DataInterface):
     as for the trained model required for the branch net.
     """
 
-    simulationDataType: SimulationDataType = SimulationDataType.SOURCE_ONLY
+    simulation_data_type: SimulationDataType = SimulationDataType.SOURCE_ONLY
 
     datasets: list[h5py.File]
-    mesh: np.ndarray[float]
+    mesh: np.ndarray
+    u_shape: np.ndarray
+    tsteps: np.ndarray
+    tt: np.ndarray
     tags_field: list[str]
     tag_ufield: str
-    tsteps: np.ndarray[float]
-    tt: np.ndarray[float]
+    data_prune: int
     N: int
-    u_shape: np.ndarray[np.int64]
+    xmin_phys: float
+    xmax_phys: float
+
     conn: np.ndarray[np.int64]
     data_prune: int
 
@@ -434,8 +553,21 @@ class DataSourceOnly(DataInterface):
         norm_data: bool = False,
         u_p_range=None,
     ) -> None:
+        """Initialize data loader for source positions only (inference mode).
+
+        Args:
+            data_path: Path to directory containing reference HDF5 files for mesh
+            source_pos: Array of source positions to generate initial conditions for
+            params: Parameters object containing physical constants (c, fmax)
+            tmax: Maximum time to load (default: inf)
+            t_norm: Temporal normalization factor (default: 1.0)
+            flatten_ic: Whether to flatten initial condition (default: True)
+            data_prune: Spatial pruning factor (default: 1)
+            norm_data: Whether to normalize data (default: False)
+            u_p_range: Optional tuple of (min, max) pressure range (default: None)
+        """
         self.data_prune = data_prune
-        self._normalize_data = norm_data
+        self.normalize_data = norm_data
 
         tag_mesh = "/mesh"
         tag_conn = "/conn"
@@ -455,7 +587,7 @@ class DataSourceOnly(DataInterface):
                 if self.data_prune == 1 and tag_conn in r
                 else np.array([])
             )
-            self._xmin, self._xmax = (
+            self.xmin_phys, self.xmax_phys = (
                 float(np.min(self.mesh)),
                 float(np.max(self.mesh)),
             )
@@ -467,10 +599,10 @@ class DataSourceOnly(DataInterface):
                 self.u_shape = jnp.array(umesh_obj.attrs[tag_ushape][:], dtype=int)
 
             tsteps = r[self.tags_field[0]].attrs["time_steps"]
-            tsteps = jnp.array([t for t in tsteps if t <= tmax / t_norm])
+            tsteps = jnp.array([t for t in tsteps if t <= tmax])
             self.tsteps = tsteps * t_norm
 
-            if self._normalize_data:
+            if self.normalize_data:
                 self.mesh = self.normalize_spatial(self.mesh)
                 self.tsteps = self.normalize_temporal(self.tsteps)
 
@@ -522,37 +654,30 @@ class DataSourceOnly(DataInterface):
         return self.P_mesh * len(self.tsteps)
 
     @property
-    def xmin(self) -> float:
-        return self._xmin
-
-    @property
-    def xmax(self) -> float:
-        return self._xmax
-
-    @property
-    def normalize_data(self) -> bool:
-        return self._normalize_data
-
-    @property
     def xxyyzztt(self) -> np.ndarray[float]:
         """Spatio-temporal coordinates stacked as [x, y, z, t]."""
         return np.hstack((self.xxyyzz, self.tt.reshape(-1, 1)))
 
     @property
     def xxyyzz(self) -> np.ndarray[float]:
+        """Spatial coordinates tiled for all timesteps."""
         return np.tile(self.mesh, (len(self.tsteps), 1))
 
     def normalize_spatial(self, data: np.ndarray[float]) -> np.ndarray[float]:
-        return _normalize_spatial(data, self._xmin, self._xmax)
+        """Normalize spatial coordinates to [-1, 1] range."""
+        return _normalize_spatial(data, self.xmin_phys, self.xmax_phys)
 
     def normalize_temporal(self, data: np.ndarray[float]) -> np.ndarray[float]:
-        return _normalize_temporal(data, self._xmin, self._xmax)
+        """Normalize temporal coordinates relative to spatial dimension to maintain resolution for optimizer."""
+        return _normalize_temporal(data, self.xmin_phys, self.xmax_phys)
 
     def denormalize_spatial(self, data: np.ndarray[float]) -> np.ndarray[float]:
-        return _denormalize_spatial(data, self._xmin, self._xmax)
+        """Denormalize spatial coordinates from [-1, 1] range."""
+        return _denormalize_spatial(data, self.xmin_phys, self.xmax_phys)
 
     def denormalize_temporal(self, data: np.ndarray[float]) -> np.ndarray[float]:
-        return _denormalize_temporal(data, self._xmin, self._xmax)
+        """Denormalize temporal coordinates."""
+        return _denormalize_temporal(data, self.xmin_phys, self.xmax_phys)
 
     def u_pressures(self, idx: int) -> np.ndarray:
         """Get normalized u pressures for a given dataset index."""
@@ -563,14 +688,22 @@ class DataSourceOnly(DataInterface):
         return jnp.reshape(u_norm, self.u_shape)
 
     def close(self) -> None:
+        """Close all open dataset files."""
         for dataset in self.datasets:
             dataset.close()
 
     def __del__(self) -> None:
+        """Clean up by closing all datasets."""
         self.close()
 
 
 class DatasetStreamer(Dataset):
+    """PyTorch Dataset wrapper for streaming DeepONet training data.
+
+    This class provides efficient batching and data loading for training DeepONets
+    on acoustic wave propagation problems.
+    """
+
     P_mesh: int
     P: int
     batch_size_coord: int
@@ -581,6 +714,7 @@ class DatasetStreamer(Dataset):
 
     @property
     def N(self):
+        """Number of datasets/samples."""
         return self.data.N
 
     @property
@@ -594,6 +728,13 @@ class DatasetStreamer(Dataset):
         return self.P_mesh * self.data.tsteps.shape[0]
 
     def __init__(self, data, batch_size_coord=-1, y_feat_extract_fn=None):
+        """Initialize dataset streamer.
+
+        Args:
+            data: DataInterface object containing loaded datasets
+            batch_size_coord: Number of coordinates to sample per batch (-1 for full dataset)
+            y_feat_extract_fn: Optional function to extract features from coordinates
+        """
         # batch_size_coord: set to -1 if full dataset should be used (e.g. for validation data)
         self.data = data
 
@@ -608,9 +749,22 @@ class DatasetStreamer(Dataset):
         self.rng = np.random.default_rng()
 
     def __len__(self):
+        """Return the number of datasets/samples in the streamer."""
         return len(self.data.datasets)
 
     def __getitem__(self, idx):
+        """Get a single sample from the dataset.
+
+        Args:
+            idx: Index of the dataset to retrieve
+
+        Returns:
+            Tuple of (inputs, s, indxs_coord, x0) where:
+                - inputs: Tuple of (u, y) initial conditions and coordinates
+                - s: Pressure field values at selected coordinates
+                - indxs_coord: Indices of selected coordinates
+                - x0: Source position (if available)
+        """
         dataset = self.data.datasets[idx]
         u = self.data.u_pressures(idx)
 
@@ -631,18 +785,18 @@ class DatasetStreamer(Dataset):
         # collect all field data for all timesteps - might be memory consuming
         # If memory load gets too heavy, consider selecting points at each timestep
         num_tsteps = len(self.data.tsteps)
-        if self.data.simulationDataType == SimulationDataType.H5COMPACT:
+        if self.data.simulation_data_type == SimulationDataType.H5COMPACT:
             s = dataset[self.data.tags_field[0]][
                 0:num_tsteps, :: self.data.data_prune
             ].flatten()[indxs_coord]
-        elif self.data.simulationDataType == SimulationDataType.XDMF:
+        elif self.data.simulation_data_type == SimulationDataType.XDMF:
             s = np.empty((self.P), dtype=np.float32)
             for j in range(num_tsteps):
                 s[j * self.data.P_mesh : (j + 1) * self.P_mesh] = dataset[
                     self.data.tags_field[j]
                 ][:: self.data.data_prune]
             s = s[indxs_coord]
-        elif self.data.simulationDataType == SimulationDataType.SOURCE_ONLY:
+        elif self.data.simulation_data_type == SimulationDataType.SOURCE_ONLY:
             s = []
         else:
             raise Exception(
@@ -661,6 +815,14 @@ class DatasetStreamer(Dataset):
 
 
 def get_number_of_sources(data_path: str):
+    """Count the number of source datasets in the given directory.
+
+    Args:
+        data_path: Path to directory containing HDF5 files
+
+    Returns:
+        Number of HDF5 files found (excluding rectilinear files)
+    """
     return len(IO.pathsToFileType(data_path, ".h5", exclude="rectilinear"))
 
 

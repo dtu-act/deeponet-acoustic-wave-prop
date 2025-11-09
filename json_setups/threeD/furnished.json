@@ -5,12 +5,12 @@
     "___input_dir": "/work3/nibor/1TB/input3D/",    
     "output_dir": "/work3/nibor/data/deeponet/output3D",
 
-    "training_data_dir": "furnished_1000hz_p6_6ppw_srcs4799_train",
-    "testing_data_dir": "furnished_1000hz_p4_5ppw_srcs203_val",
+    "train_data_dir": "furnished_1000hz_p6_6ppw_srcs4799_train",
+    "val_data_dir": "furnished_1000hz_p4_5ppw_srcs203_val",
 
-    "tmax": 17.0,
+    "tmax": 0.05,
     
-    "f0_feat": [1.458,0.729,0.486],
+    "f0_feat": [500.0, 250.0, 167.0],
     "normalize_data": true,
 
     "iterations": 60000,

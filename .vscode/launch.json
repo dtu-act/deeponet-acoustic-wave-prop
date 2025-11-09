@@ -18,7 +18,7 @@
             "module": "deeponet_acoustics.main_train",
             "args": [
                 "--path_settings",
-                "json_setups/threeD/choras_cube.json",
+                "json_setups/twoD/rect.json",
             ],
             "console": "integratedTerminal"
         },        
@@ -29,9 +29,9 @@
             "module": "deeponet_acoustics.main_inference",
             "args": [
                 "--path_settings",
-                "json_setups/twoD/rect2x2.json",
+                "json_setups/twoD/rect.json",
                 "--path_eval_settings",
-                "json_setups/twoD/rect2x2_eval.json",
+                "json_setups/twoD/rect_eval.json",
             ],
             "console": "integratedTerminal"
         },

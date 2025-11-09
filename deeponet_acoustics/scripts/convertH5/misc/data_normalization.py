@@ -39,14 +39,14 @@ c_phys = phys_params.c_phys
 ### Initialize model ###
 filenames_xdmf = IO.pathsToXdmf(settings.dirs.training_data_path)
 
-xdmf = XdmfReader(filenames_xdmf[0], tmax=tmax / c_phys)
+xdmf = XdmfReader(filenames_xdmf[0], tmax=tmax)
 tags_field = xdmf.tags_field
 
 num_tsteps = len(xdmf.tsteps)
 
 datasets = []
 for filename in filenames_xdmf[0:100]:
-    xdmf = XdmfReader(filename, tmax=tmax / c_phys)
+    xdmf = XdmfReader(filename, tmax=tmax)
     datasets.append(h5py.File(xdmf.filenameH5, "r"))  # add file handles and keeps open
 
 p_means = []

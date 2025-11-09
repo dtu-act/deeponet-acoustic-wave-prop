@@ -31,7 +31,7 @@ def create_metadata_json(
     simulation_params = {
         "SimulationParameters": {
             "SourcePosition": src_pos.tolist() if src_pos is not None else [],
-            "c": float(pressure_attrs["c_phys"]),
+            "c": float(pressure_attrs["c"]),
             "dt": float(pressure_attrs["dt"]),
             "fmax": float(pressure_attrs["fmax"]),
             "rho": float(pressure_attrs["rho"]),
@@ -93,13 +93,17 @@ def split_2d_by_source_position(input_file: Path, output_path: Path):
         c_phys = float(pressure_attrs["c_phys"])
         fmax_normalized = float(pressure_attrs["fmax"])
         fmax_phys = round(fmax_normalized * c_phys, 1)
+        tmax = float(pressure_attrs["fmax"]) / c_phys
         dt_normalized = float(pressure_attrs["dt"])
         dt_phys = dt_normalized / c_phys
 
         # Update pressure_attrs with denormalized values for use in root metadata
-        pressure_attrs_denormalized = pressure_attrs.copy()
+        pressure_attrs_denormalized: dict = pressure_attrs.copy()
+        pressure_attrs_denormalized.pop["c_phys", None]
+        pressure_attrs_denormalized["c"] = c_phys
         pressure_attrs_denormalized["fmax"] = fmax_phys
         pressure_attrs_denormalized["dt"] = dt_phys
+        pressure_attrs_denormalized["tmax"] = tmax
 
         src_pos_2d = None
 
@@ -126,9 +130,8 @@ def split_2d_by_source_position(input_file: Path, output_path: Path):
                 )  # Keep as int
 
                 # Extract pressure data for this source (transpose to match 3D format)
-                src_pressures = pressures[
-                    src_idx, :, :
-                ]  # From (src_pos, time_steps, spatial_points) to (time_steps, spatial_points)
+                # From (src_pos, time_steps, spatial_points) to (time_steps, spatial_points)
+                src_pressures = pressures[src_idx, :, :]
                 pressures_dataset = f_out.create_dataset(
                     "pressures", data=src_pressures
                 )
