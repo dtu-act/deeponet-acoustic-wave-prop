@@ -11,15 +11,21 @@ import time
 from pathlib import Path
 
 import numpy as np
-from utils.feat_expansion import fourierFeatureExpansion_f0
 
-import datahandlers.data_rw as rw
-from datahandlers.datagenerators import DataH5Compact, DatasetStreamer
+import deeponet_acoustics.datahandlers.data_rw as rw
+from deeponet_acoustics.datahandlers.datagenerators import (
+    DataH5Compact,
+    DatasetStreamer,
+)
+from deeponet_acoustics.models.datastructures import (
+    NetworkArchitectureType,
+    TransferLearning,
+)
+from deeponet_acoustics.models.deeponet import DeepONet
+from deeponet_acoustics.models.networks_flax import setupNetwork
 from deeponet_acoustics.setup.settings import SimulationSettings
+from deeponet_acoustics.utils.feat_expansion import fourierFeatureExpansion_f0
 from deeponet_acoustics.visualization.info_printing import networkInfo
-from models.datastructures import NetworkArchitectureType, TransferLearning
-from models.deeponet import DeepONet
-from models.networks_flax import setupNetwork
 
 
 def evaluate_inference_speed3D(settings: SimulationSettings, tmax_eval=0.05):
