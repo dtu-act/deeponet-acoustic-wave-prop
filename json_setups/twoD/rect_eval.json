@@ -1,8 +1,8 @@
 {
-    "model_dir": "/Users/nikolasborrel/data/deeponet/data/output2D_split/rect2x2_mlp",    
-    "validation_data_dir": "/Users/nikolasborrel/data/deeponet/data/input2D_split/rect3x3_furn_freq_indep_ppw_2_4_2_test",
+    "model_dir": "/Users/nikolasborrel/data/deeponet/data/output2D/rect2x2",    
+    "test_data_dir": "/Users/nikolasborrel/data/deeponet/data/input2D/rect2x2_freq_indep_ppw_2_4_2_test",
 
-    "tmax": 1000,
+    "tmax": 0.05,
     
     "write_full_wave_field": false,
 

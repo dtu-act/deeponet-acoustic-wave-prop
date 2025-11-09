@@ -19,7 +19,7 @@ import numpy as np
 class XdmfReader:
     root: ET.Element
     filenameH5: str  # assume filename is the same for all datasets
-    tsteps: list[float]
+    tsteps: list[float]  # physical time
     tag_mesh: str
     tags_field: list[str]
     tag_umesh: str
@@ -49,7 +49,7 @@ class XdmfReader:
 
         # HACK: assume datasets are named data{i}
         self.tags_field = []
-        for i, tstep in enumerate(self.tsteps):
+        for i, _ in enumerate(self.tsteps):
             self.tags_field.append(f"/data{i + 2}")
 
         self.tag_ufield = "/udata2"

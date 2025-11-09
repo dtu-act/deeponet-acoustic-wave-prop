@@ -48,7 +48,7 @@ def inference(
         settings_eval = EvaluationSettings(settings_eval_dict)
     else:
         # we read number of sources from filesystem when not explicitly set
-        num_srcs = get_number_of_sources(settings_eval_dict["validation_data_dir"])
+        num_srcs = get_number_of_sources(settings_eval_dict["test_data_dir"])
         settings_eval = EvaluationSettings(settings_eval_dict, num_srcs)
 
     tmax = settings_eval.tmax
@@ -64,7 +64,7 @@ def inference(
 
     ### Initialize model ###
     f = settings.f0_feat
-    y_feat_fn = fourierFeatureExpansion_f0(f)
+    y_feat_fn = fourierFeatureExpansion_f0(f, c_phys)
 
     flatten_ic = branch_net.architecture != NetworkArchitectureType.RESNET
 
@@ -231,7 +231,7 @@ def inference(
                 tsteps_phys,
                 ir_pred_srcs,
                 ir_ref_srcs,
-                tmax / c_phys,
+                tmax,
                 path_receivers,
                 animate=settings_eval.write_ir_animations,
             )
@@ -242,7 +242,7 @@ def inference(
                 r0_list,
                 tsteps_phys,
                 ir_pred_srcs,
-                tmax / c_phys,
+                tmax,
                 path_receivers,
                 "pred",
             )
@@ -251,7 +251,7 @@ def inference(
                 r0_list,
                 tsteps_phys,
                 ir_ref_srcs,
-                tmax / c_phys,
+                tmax,
                 path_receivers,
                 "ref",
             )
@@ -262,7 +262,7 @@ def inference(
                 r0_list,
                 tsteps_phys,
                 ir_pred_srcs,
-                tmax / c_phys,
+                tmax,
                 path_receivers,
                 animate=settings_eval.write_ir_animations,
             )
@@ -273,7 +273,7 @@ def inference(
                 r0_list,
                 tsteps_phys,
                 ir_pred_srcs,
-                tmax / c_phys,
+                tmax,
                 path_receivers,
                 "pred",
             )

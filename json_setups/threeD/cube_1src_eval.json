@@ -1,8 +1,8 @@
 {
     "model_dir": "/Users/nikolasborrel/data/deeponet/data/cube_1src/",
-    "validation_data_dir": "/Users/nikolasborrel/data/deeponet/data/input3D_1src/cube2x2x2_1000hz_p6_6ppw_srcs2826_train",
+    "test_data_dir": "/Users/nikolasborrel/data/deeponet/data/input3D_1src/cube2x2x2_1000hz_p6_6ppw_srcs2826_train",
 
-    "tmax": 17,
+    "tmax": 0.05,
     
     "write_full_wave_field": false,
 

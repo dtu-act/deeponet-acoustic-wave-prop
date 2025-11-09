@@ -53,10 +53,15 @@ def loadAttrFromH5(path_data):
 
 
 def loadDataFromH5(path_data, tmax=None):
-    """input
-        tmax: normalized max time
-    output
-        grid: is a x X y x t dimensional array
+    """Loading data from H5 file.
+
+    Make sure the data has been updated such that data takes non-normalized physical values (e.g. tmax).
+
+    Parameters:
+        tmax: Physical max time
+
+    Output
+        grid: a x X y x t dimensional array
     """
 
     with h5py.File(path_data, "r") as f:
@@ -80,19 +85,19 @@ def loadDataFromH5(path_data, tmax=None):
             x0_srcs = x0_srcs.T if x0_srcs.shape[0] != up.shape[0] else x0_srcs
 
         dt = f["pressures"].attrs["dt"][0]
-        t = np.asarray(f["t"][()])
+        tsteps = np.asarray(f["t"][()])
 
         if tmax is None:
-            ilast = len(t) - 1
+            ilast = len(tsteps) - 1
         else:
-            ilist = [i for i, n in enumerate(t) if abs(n - tmax) <= dt / 2]
+            ilist = [i for i, t in enumerate(tsteps) if abs(t - tmax) <= dt / 2]
             if not ilist:
                 raise Exception(
-                    f"tmax {tmax} exceeds simulation data running time {t[-1]}"
+                    f"tmax {tmax} exceeds simulation data running time {tsteps[-1]}"
                 )
             ilast = ilist[0]
             # crop w.r.t. time
-            t = np.array(t[: ilast + 1])
+            tsteps = np.array(tsteps[: ilast + 1])
 
         if len(p.shape) == 2:  # data is written differently in Matlab and C++/Python
             p = np.array([p[: ilast + 1, :]])
@@ -104,7 +109,7 @@ def loadDataFromH5(path_data, tmax=None):
         )
 
         data = SimulationData(
-            mesh, umesh, ushape, p, up, t, conn, x0_srcs, mesh.shape[1]
+            mesh, umesh, ushape, p, up, tsteps, conn, x0_srcs, mesh.shape[1]
         )
 
     return data
@@ -112,8 +117,6 @@ def loadDataFromH5(path_data, tmax=None):
 
 def writeDataToHDF5(grid, p, domain: Domain, physics: Physics, path_file: str, v=None):
     """Write data as HDF5 format"""
-    """ Ex: writeHDF5([1,2,3],[0.1,0.2,0.3],data,[-0.2,0.0,0.2],0.1,1.0,343,0.1,2000,'test1.h5')
-    """
     x0_sources = domain.x0_sources
     dt = domain.dt
     dx = domain.dx

@@ -1,8 +1,8 @@
 {
     "model_dir": "/work3/nibor/data/deeponet/output3D/Lshape_6ppw",
-    "validation_data_dir": "/work3/nibor/1TB/input3D/Lshape_1000hz_p4_5ppw_srcpos5_test",
+    "test_data_dir": "/work3/nibor/1TB/input3D/Lshape_1000hz_p4_5ppw_srcpos5_test",
 
-    "tmax": 17,
+    "tmax": 0.05,
 
     "write_full_wave_field": false,
 

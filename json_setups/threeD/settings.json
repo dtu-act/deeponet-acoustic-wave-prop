@@ -4,12 +4,12 @@
     "input_dir": "/Users/nikolasborrel/data/deeponet/choras/input_data/",
     "output_dir": "/Users/nikolasborrel/data/deeponet/choras/output_data/",
 
-    "training_data_dir": "train_data",
-    "testing_data_dir": "val_data",
+    "train_data_dir": "train_data",
+    "val_data_dir": "val_data",
 
-    "tmax": 1000,
+    "tmax": 0.05,
     
-    "f0_feat": [1.458,0.729,0.486],
+    "f0_feat": [500.0, 250.0, 167.0],
     "normalize_data": true,
 
     "iterations": 1000,

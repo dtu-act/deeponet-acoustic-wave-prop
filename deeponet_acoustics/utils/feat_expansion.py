@@ -52,7 +52,7 @@ def fourierFeatureExpansion_gaussian(shape: tuple, mean: float, std_dev: float):
     )
 
 
-def fourierFeatureExpansion_f0(fs: list) -> Callable:
+def fourierFeatureExpansion_f0(fs: list, scaling=1.0) -> Callable:
     fs = np.asarray(fs)
 
     if len(fs) == 0:
@@ -61,7 +61,7 @@ def fourierFeatureExpansion_f0(fs: list) -> Callable:
         return lambda y: np.hstack(
             [
                 y,
-                *np.array(list(map(lambda f: np.cos(2 * np.pi * f * y), fs))),
-                *np.array(list(map(lambda f: np.sin(2 * np.pi * f * y), fs))),
+                *np.array(list(map(lambda f: np.cos(2 * np.pi * f / scaling * y), fs))),
+                *np.array(list(map(lambda f: np.sin(2 * np.pi * f / scaling * y), fs))),
             ]
         )

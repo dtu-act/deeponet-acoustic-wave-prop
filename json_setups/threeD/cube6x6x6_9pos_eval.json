@@ -1,8 +1,8 @@
 {
     "model_dir": "/work3/nibor/data/deeponet/output3D/cube6x6x6_5ppw_src_dir",    
-    "validation_data_dir": "/work3/nibor/1TB/input3D/cube6x6x6_1000hz_p6_4ppw_src9_test",
+    "test_data_dir": "/work3/nibor/1TB/input3D/cube6x6x6_1000hz_p6_4ppw_src9_test",
 
-    "tmax": 10.2,
+    "tmax": 0.03,
 
     "write_full_wave_field": false,
 

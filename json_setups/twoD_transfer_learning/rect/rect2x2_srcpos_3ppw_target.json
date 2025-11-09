@@ -4,10 +4,10 @@
     "input_dir": "/work3/nibor/1TB/input2D",
     "output_dir": "/work3/nibor/data/deeponet/output2D",
 
-    "training_data_dir": "rect2x2_freq_indep_ppw_2_6_2_3_train.h5",
-    "testing_data_dir": "rect2x2_freq_indep_ppw_2_4_2_val.h5",
+    "train_data_dir": "rect2x2_freq_indep_ppw_2_6_2_3_train.h5",
+    "val_data_dir": "rect2x2_freq_indep_ppw_2_4_2_val.h5",
     
-    "tmax": 16.9,
+    "tmax": 0.5,
     "normalize_data": true,
 
     "transfer_learning": {
@@ -21,7 +21,7 @@
         }
     },
 
-    "f0_feat": [1.458,0.729,0.486],
+    "f0_feat": [500.0, 250.0, 167.0],
     "iterations": 40000,
     "decay_steps": 2000,
     "decay_rate": 0.90,

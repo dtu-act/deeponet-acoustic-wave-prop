@@ -28,6 +28,22 @@ uv run ruff check . --fix && uv run ruff format .
 ```
 *Tested with Python 3.11, JAX 0.7.2, Flax 0.10.7*.
 
+## Tutorial Notebook
+
+A comprehensive PyTorch-based tutorial notebook is available for learning DeepONet fundamentals:
+
+**Location:** `notebooks/deeponet_tutorial_torch.ipynb`
+
+**Topics covered:**
+- DeepONet architecture and operator learning principles
+- Data loading and visualization for 2D acoustic problems
+- Comparison of activation functions (ReLU vs Sine)
+- Impact of Fourier feature expansions
+- Full training and inference pipeline
+- Wavefield prediction and impulse response extraction
+
+The notebook provides a hands-on introduction to training DeepONets for acoustic wave propagation using PyTorch, making it ideal for educational purposes and understanding the core concepts before working with the full JAX-based training pipeline.
+
 **Training:**
 ```bash
 uv run deeponet-train --path_settings <settings.json>
@@ -37,6 +53,47 @@ uv run deeponet-train --path_settings <settings.json>
 ```bash
 uv run deeponet-infer --path_settings <train_settings.json> --path_eval_settings <eval_settings.json>
 ```
+
+## Monitoring Training with TensorBoard
+
+Training automatically logs metrics to TensorBoard for real-time monitoring:
+
+**Start TensorBoard:**
+```bash
+# Monitor a specific model during training
+tensorboard --logdir=/path/to/output_dir/model_name/
+
+# Monitor multiple models simultaneously
+tensorboard --logdir=/path/to/output_dir/
+
+# Specify custom port
+tensorboard --logdir=/path/to/output_dir/ --port=6006
+```
+
+Then open your browser at `http://localhost:6006`
+
+**Logged metrics:**
+- Training loss (MSE)
+- Validation loss (MSE)
+- Learning rate schedule
+
+**Extracting loss curves:**
+
+You can programmatically extract and plot loss curves from TensorBoard logs:
+
+```python
+from deeponet_acoustics.models.deeponet import loadLosses
+
+# Load losses from TensorBoard event files
+step_offset, loss_logger = loadLosses("/path/to/output_dir/model_name/")
+
+# Access loss values
+train_losses = loss_logger.loss_train
+val_losses = loss_logger.loss_val
+iterations = loss_logger.nIter
+```
+
+See `deeponet_acoustics/scripts/loss_plot.py` for examples of comparing multiple models.
 
 ## Configuration
 
@@ -48,11 +105,11 @@ uv run deeponet-infer --path_settings <train_settings.json> --path_eval_settings
     "id": "model_name",
     "input_dir": "/path/to/data/",
     "output_dir": "/path/to/output/",
-    "training_data_dir": "train/",
-    "testing_data_dir": "validation/",
+    "train_data_dir": "train/",
+    "val_data_dir": "validation/",
     
-    "tmax": 17.0,
-    "f0_feat": [1.458, 0.729, 0.486],
+    "tmax": 0.05,
+    "f0_feat": [500.0, 250.0, 167.0],
     "normalize_data": true,
     
     "iterations": 80000,
@@ -94,8 +151,8 @@ uv run deeponet-infer --path_settings <train_settings.json> --path_eval_settings
 **Activation functions:** `sin`, `tanh`, `relu`
 
 **Key parameters:**
-- `f0_feat`: Normalized frequencies for positional encoding in Fourier expansions
-- `tmax`: Normalized physical simulation time
+- `f0_feat`: Physical frequencies for positional encoding in Fourier expansions
+- `tmax`: Physical simulation time
 - `batch_size_branch` × `batch_size_coord`: Total batch size
 
 ### Evaluation Settings
@@ -103,8 +160,8 @@ uv run deeponet-infer --path_settings <train_settings.json> --path_eval_settings
 ```json
 {
     "model_dir": "/path/to/trained/model/",
-    "validation_data_dir": "/path/to/validation/data/",
-    "tmax": 17,
+    "test_data_dir": "/path/to/testing/data/",
+    "tmax": 0.05,
     
     "snap_to_grid": true,
     "write_ir_plots": true,

@@ -10,18 +10,25 @@ import os
 import time
 from pathlib import Path
 
-import datahandlers.data_rw as rw
 import numpy as np
-from datahandlers.datagenerators import DataH5Compact, DatasetStreamer
-from models.datastructures import NetworkArchitectureType, TransferLearning
-from models.deeponet import DeepONet
-from models.networks_flax import setupNetwork
-from utils.feat_expansion import fourierFeatureExpansion_f0
 
+import deeponet_acoustics.datahandlers.data_rw as rw
+from deeponet_acoustics.datahandlers.datagenerators import (
+    DataH5Compact,
+    DatasetStreamer,
+)
+from deeponet_acoustics.models.datastructures import (
+    NetworkArchitectureType,
+    TransferLearning,
+)
+from deeponet_acoustics.models.deeponet import DeepONet
+from deeponet_acoustics.models.networks_flax import setupNetwork
+from deeponet_acoustics.setup.settings import SimulationSettings
+from deeponet_acoustics.utils.feat_expansion import fourierFeatureExpansion_f0
 from deeponet_acoustics.visualization.info_printing import networkInfo
 
 
-def evaluate_inference_speed3D(settings, tmax_eval=0.5):
+def evaluate_inference_speed3D(settings: SimulationSettings, tmax_eval=0.05):
     # id = "bilbao_4ppw_bs96_1500"
     # id = "dome_6ppw_1stquad_resnet"
     # output_dir = "/work3/nibor/data/deeponet/output3D"
@@ -55,7 +62,7 @@ def evaluate_inference_speed3D(settings, tmax_eval=0.5):
 
     ### Initialize model ###
     f = settings.f0_feat
-    y_feat_fn = fourierFeatureExpansion_f0(f)
+    y_feat_fn = fourierFeatureExpansion_f0(f, c_phys)
 
     prune_spatial = 2
     metadata = DataH5Compact(
@@ -100,6 +107,7 @@ def evaluate_inference_speed3D(settings, tmax_eval=0.5):
     # for number of timesteps and receivers (for a fixed source position u)
     # use sample rate from simulation (could be chosen arbitrarily if needed)
     assert phys_params.fmax == 1000
+    # scaled timesteps
     tsteps_eval = np.linspace(
         0, tmax_eval / phys_params.c, int(tmax_eval / (1 / (phys_params.fmax * 2)))
     )
