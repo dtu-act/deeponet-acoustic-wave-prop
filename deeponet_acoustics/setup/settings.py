@@ -38,7 +38,7 @@ class SimulationSettings:
             settings, input_dir=input_dir, output_dir=output_dir
         )
 
-        self.tmax = settings["tmax"]
+        self.tmax = settings["tmax"] if "tmax" in settings else float("inf")
         self.f0_feat = settings["f0_feat"] if "f0_feat" in settings else []
         self.normalize_data = (
             settings["normalize_data"] if "normalize_data" in settings else True

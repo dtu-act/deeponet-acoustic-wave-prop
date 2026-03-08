@@ -290,7 +290,7 @@ class EvaluationSettings:
 
         self.data_path = settings["test_data_dir"]
         self.model_dir = settings["model_dir"]
-        self.tmax = settings["tmax"]
+        self.tmax = settings["tmax"] if "tmax" in settings else float("inf")
 
         self.snap_to_grid = settings["snap_to_grid"]
         self.write_full_wave_field = settings["write_full_wave_field"]
