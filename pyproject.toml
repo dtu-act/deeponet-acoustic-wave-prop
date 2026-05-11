@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deeponet_acoustics"
-version = "1.1.0"
+version = "0.3.0"
 description = "DeepONet for acoustic wave propagation"
 authors = [
     { name = "Nikolas Borrel-Jensen", email = "nikolasborrel@proton.me" },
@@ -28,7 +28,6 @@ dependencies = [
     "h5py",
     "tqdm",
     "meshio",
-    "h5py",
     "ruff",
     "pre-commit",
 ]
