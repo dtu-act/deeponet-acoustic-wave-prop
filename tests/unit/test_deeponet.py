@@ -343,9 +343,10 @@ class TestDeepONetComponents:
 
         assert progress_values[0] == 0.0
         assert progress_values[-1] == pytest.approx(100.0)
-        assert all(b >= a for a, b in zip(progress_values, progress_values[1:]))
-        # one call before the loop + one per iteration
-        assert len(progress_values) == nIter + 1
+        # callback fires only on integer-percent advances → strictly increasing
+        assert all(b > a for a, b in zip(progress_values, progress_values[1:]))
+        # all values should be whole percentages
+        assert all(p == float(int(p)) for p in progress_values)
 
     def test_deeponet_with_adaptive_weights(
         self, simple_fnn_module, mock_dataset, basic_training_settings, temp_dir
