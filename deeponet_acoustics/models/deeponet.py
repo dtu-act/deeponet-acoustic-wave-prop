@@ -9,7 +9,7 @@
 import collections
 import os
 from functools import partial
-from typing import Any
+from typing import Any, Callable
 
 import flax
 import jax
@@ -194,9 +194,22 @@ class DeepONet:
         self.opt_state = self.optimizer.init(self.params)
 
     def train(
-        self, dataloader, dataloader_val, nIter, save_every=200, do_timings=False
+        self,
+        dataloader,
+        dataloader_val,
+        nIter,
+        save_every=200,
+        do_timings=False,
+        progress_callback: Callable[[float], None] | None = None,
     ):
-        """Main train loop using dataloaders (3D data)."""
+        """Main train loop using dataloaders.
+
+        Runs nIter additional iterations starting from self.step_offset, so when resuming
+        from a checkpoint training continues from the last step and ends at step_offset + nIter.
+
+        progress_callback, if given, is called after each iteration with a float in [0, 100]
+        measuring progress through these nIter iterations (independent of step_offset).
+        """
         writer = SummaryWriter(log_dir=self.log_dir)
         timer = TimingsWriter(log_dir=self.log_dir) if do_timings else None
 
@@ -205,8 +218,11 @@ class DeepONet:
         pbar_epochs = trange(np.ceil(nIter / num_batches).astype("int"))
 
         i = self.step_offset
+        start = i
         if i == 0:
             self.writeState(i, pbar_epochs, dataloader, dataloader_val, writer)
+        if progress_callback is not None:
+            progress_callback(0.0)
 
         timer.resetTimings() if do_timings else None
         timer.startTiming("total_iter") if do_timings else None
@@ -244,6 +260,9 @@ class DeepONet:
 
                 if i % save_every == 0:
                     self.writeState(i, pbar_epochs, dataloader, dataloader_val, writer)
+
+                if progress_callback is not None:
+                    progress_callback(min(100.0, 100.0 * (i - start) / nIter))
 
         # save final result
         if i % save_every != 0:

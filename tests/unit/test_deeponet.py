@@ -290,6 +290,63 @@ class TestDeepONetComponents:
         # Loss should be computed
         assert jnp.isfinite(loss_value)
 
+    def test_progress_callback(
+        self, simple_fnn_module, mock_dataset, basic_training_settings, temp_dir
+    ):
+        """progress_callback receives 0.0 at start, 100.0 at end, monotonic in between."""
+        model = DeepONet(
+            settings=basic_training_settings,
+            dataset=mock_dataset,
+            module_bn=(simple_fnn_module, 50),
+            module_tn=(simple_fnn_module, 4),
+            log_dir=str(temp_dir),
+        )
+
+        # Skip checkpoint/summary writes — we only want to exercise the callback.
+        model.writeState = lambda *a, **k: None
+
+        batch_size_branch = 2
+        n_sources = 4
+        n_coords = 8
+        n_batches = n_sources // batch_size_branch  # = 2
+
+        def make_batch():
+            u = jnp.ones((batch_size_branch, 50))
+            y = jnp.ones((batch_size_branch, n_coords, 4))
+            outputs = jnp.zeros((batch_size_branch, n_coords))
+            idx_coord = jnp.arange(n_coords * batch_size_branch).reshape(
+                batch_size_branch, n_coords
+            )
+            return ((u, y), outputs, idx_coord)
+
+        class FakeLoader:
+            batch_size = batch_size_branch
+
+            class dataset:
+                N = n_sources
+
+            def __iter__(self):
+                for _ in range(n_batches):
+                    yield make_batch()
+
+        loader = FakeLoader()
+        nIter = 4  # exactly 2 epochs of 2 batches
+
+        progress_values = []
+        model.train(
+            loader,
+            loader,
+            nIter=nIter,
+            save_every=10_000,
+            progress_callback=lambda p: progress_values.append(p),
+        )
+
+        assert progress_values[0] == 0.0
+        assert progress_values[-1] == pytest.approx(100.0)
+        assert all(b >= a for a, b in zip(progress_values, progress_values[1:]))
+        # one call before the loop + one per iteration
+        assert len(progress_values) == nIter + 1
+
     def test_deeponet_with_adaptive_weights(
         self, simple_fnn_module, mock_dataset, basic_training_settings, temp_dir
     ):
