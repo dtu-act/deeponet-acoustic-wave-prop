@@ -8,7 +8,7 @@
 # ==============================================================================
 import json
 import os
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 from torch.utils.data import DataLoader
@@ -27,7 +27,11 @@ from deeponet_acoustics.utils.feat_expansion import fourierFeatureExpansion_f0
 from deeponet_acoustics.visualization.info_printing import datasetInfo, networkInfo
 
 
-def train(settings_dict: dict[str, Any]):
+def train(
+    settings_dict: dict[str, Any],
+    progress_callback: Callable[[float], None] | None = None,
+):
+    """progress_callback, if given, is called after each iteration with a float in [0, 100]."""
     settings = SimulationSettings(settings_dict)
     if (
         settings.transfer_learning is None
@@ -126,5 +130,11 @@ def train(settings_dict: dict[str, Any]):
     )
 
     ### Train ###
-    model.train(dataloader, dataloader_val, nIter, save_every=200)
+    model.train(
+        dataloader,
+        dataloader_val,
+        nIter,
+        save_every=200,
+        progress_callback=progress_callback,
+    )
     model.plotLosses(settings.dirs.figs_dir)
